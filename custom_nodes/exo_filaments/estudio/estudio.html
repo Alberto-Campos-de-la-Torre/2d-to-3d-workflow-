@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estudio Qwen · Exo</title>
+<style>
+  :root {
+    --fondo: #121315; --panel: #1b1d20; --panel2: #23262a; --borde: #33373d;
+    --texto: #e6e7e9; --suave: #9aa0a8; --acento: #e0a526; --acento-t: #1a1407;
+    --bien: #3fb27f; --mal: #e0584f; --info: #5b9bd5;
+    --radio: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--fondo); color: var(--texto);
+    font: 13px/1.45 system-ui, "Segoe UI", sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { background: var(--panel2); border: 1px solid var(--borde); border-radius: 6px;
+    padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: #555b63; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primario { background: var(--acento); color: var(--acento-t); border-color: var(--acento); font-weight: 650; }
+  button.activo { border-color: var(--acento); color: var(--acento); }
+  input[type=text], input[type=number], select, textarea {
+    background: #0e0f11; border: 1px solid var(--borde); border-radius: 6px; padding: 6px 8px; width: 100%; }
+  textarea { resize: vertical; }
+  label { display: block; font-size: 11px; color: var(--suave); margin: 0 0 4px; text-transform: uppercase; letter-spacing: .04em; }
+
+  .app { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+  aside { background: var(--panel); border-right: 1px solid var(--borde); overflow-y: auto; padding: 14px;
+    display: flex; flex-direction: column; gap: 12px; }
+  main { display: flex; flex-direction: column; min-width: 0; }
+  h1 { font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  h1 small { font-weight: 400; color: var(--suave); font-size: 11px; }
+  .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .fila3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips button { padding: 4px 8px; font-size: 12px; }
+  .nota { font-size: 11px; color: var(--suave); margin: 0; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+  details summary { cursor: pointer; color: var(--suave); font-size: 12px; }
+  details[open] summary { margin-bottom: 8px; }
+  .ref { display: flex; gap: 8px; align-items: center; }
+  .ref img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--borde); }
+
+  .cola { background: var(--panel2); border-radius: var(--radio); padding: 10px; display: none; flex-direction: column; gap: 6px; }
+  .cola.visible { display: flex; }
+  .barra { height: 6px; background: #0e0f11; border-radius: 3px; overflow: hidden; }
+  .barra > div { height: 100%; width: 0; background: var(--acento); transition: width .2s; }
+
+  .herramientas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px;
+    border-bottom: 1px solid var(--borde); background: var(--panel); }
+  .herramientas input[type=text] { width: 220px; }
+  .herramientas select { width: auto; }
+  .contador { color: var(--suave); font-size: 12px; margin-left: auto; }
+  .rejilla { flex: 1; overflow-y: auto; padding: 14px; display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-content: start; }
+  .tarjeta { position: relative; background: var(--panel); border: 2px solid transparent; border-radius: var(--radio);
+    overflow: hidden; cursor: pointer; }
+  .tarjeta:hover { border-color: #444a52; }
+  .tarjeta.elegida { border-color: var(--info); }
+  .tarjeta img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #0b0c0d; }
+  .tarjeta .pie { padding: 6px 8px; font-size: 11px; color: var(--suave); display: flex; justify-content: space-between; gap: 6px; }
+  .tarjeta .pie span:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .sello { position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+  .sello.buena { background: var(--bien); color: #04140c; }
+  .sello.descartada { background: var(--mal); color: #1a0504; }
+  .tarjeta.descartada img { opacity: .4; }
+  .estrellas-mini { position: absolute; top: 6px; right: 6px; background: #000a; color: var(--acento); font-size: 11px;
+    padding: 1px 6px; border-radius: 10px; }
+  .vacio { grid-column: 1 / -1; text-align: center; color: var(--suave); padding: 60px 20px; }
+  .fantasma { aspect-ratio: 1; display: grid; place-items: center; background: repeating-linear-gradient(45deg,#1b1d20 0 10px,#202327 10px 20px);
+    color: var(--suave); font-size: 12px; }
+
+  .visor { position: fixed; inset: 0; background: #000d; display: none; z-index: 10; }
+  .visor.abierto { display: grid; grid-template-columns: 1fr 360px; }
+  .lienzo { position: relative; display: grid; place-items: center; overflow: hidden; padding: 16px; min-height: 0; }
+  .lienzo img { max-width: 100%; max-height: calc(100vh - 32px); object-fit: contain; cursor: zoom-in; }
+  .lienzo.zoom { overflow: auto; place-items: start; }
+  .lienzo.zoom img { max-width: none; max-height: none; cursor: zoom-out; }
+  .flecha { position: absolute; top: 50%; transform: translateY(-50%); background: #0008; border: 0; font-size: 22px; padding: 10px 14px; }
+  .flecha.izq { left: 10px; } .flecha.der { right: 10px; }
+  .ficha { background: var(--panel); border-left: 1px solid var(--borde); overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px; }
+  .ficha .prompt { white-space: pre-wrap; background: #0e0f11; border-radius: 6px; padding: 8px; max-height: 180px; overflow-y: auto; font-size: 12px; }
+  .datos { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+  .datos dt { color: var(--suave); } .datos dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-all; }
+  .estrellas { display: flex; gap: 2px; }
+  .estrellas button { background: none; border: 0; font-size: 22px; padding: 0 2px; color: #4a4f56; }
+  .estrellas button.on { color: var(--acento); }
+  .veredicto { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .veredicto .buena.activo { background: var(--bien); color: #04140c; border-color: var(--bien); }
+  .veredicto .descartada.activo { background: var(--mal); color: #1a0504; border-color: var(--mal); }
+  .acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .atajos { font-size: 11px; color: var(--suave); }
+  kbd { background: var(--panel2); border: 1px solid var(--borde); border-radius: 4px; padding: 0 4px; font-size: 10px; }
+  .cerrar { position: absolute; top: 10px; right: 10px; z-index: 2; }
+
+  .comparador { position: fixed; inset: 0; background: #000e; z-index: 11; display: none; flex-direction: column; }
+  .comparador.abierto { display: flex; }
+  .comparador .cab { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--panel); }
+  .comparador .lados { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; min-height: 0; }
+  .lado { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .lado img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
+  .lado .datos { background: var(--panel); padding: 8px; border-radius: 6px; }
+  .distinto { color: var(--acento); font-weight: 650; }
+
+  .aviso { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--borde);
+    padding: 8px 14px; border-radius: 8px; z-index: 20; display: none; max-width: 90vw; }
+  .aviso.visible { display: block; }
+  .aviso.error { border-color: var(--mal); }
+
+  @media (max-width: 800px) {
+    .app { grid-template-columns: 1fr; height: auto; }
+    aside { border-right: 0; border-bottom: 1px solid var(--borde); }
+    .rejilla { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .visor.abierto { grid-template-columns: 1fr; grid-template-rows: 60vh auto; overflow-y: auto; }
+    .herramientas input[type=text] { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>Estudio Qwen-Image 2.1 <small id="estado-servidor">conectando…</small></h1>
+
+    <div>
+      <label for="prompt">Qué quieres ver</label>
+      <textarea id="prompt" rows="6" placeholder="Figura de un dragón pequeño sentado, estilo juguete de vinilo, fondo liso…"></textarea>
+    </div>
+    <label class="check"><input type="checkbox" id="transparente"> Fondo transparente (PNG con canal alfa)</label>
+    <label class="check"><input type="checkbox" id="para3d"> Pensada para pasar a 3D (objeto entero, centrado, fondo liso)</label>
+
+    <div>
+      <label>Formato</label>
+      <div class="chips" id="formatos"></div>
+    </div>
+    <div class="fila">
+      <div><label for="mp">Megapíxeles</label>
+        <select id="mp"><option value="1">1 MP (rápido)</option><option value="1.5">1,5 MP</option><option value="2.25">2,25 MP</option><option value="4">4 MP (2K nativo)</option></select></div>
+      <div><label>Tamaño</label><div id="tamano" style="padding:6px 0; font-variant-numeric: tabular-nums;"></div></div>
+    </div>
+
+    <div class="fila3">
+      <div><label for="pasos">Pasos</label><input type="number" id="pasos" value="25" min="1" max="100"></div>
+      <div><label for="cfg">CFG</label><input type="number" id="cfg" value="1" min="1" max="10" step="0.5"></div>
+      <div><label for="variantes">Variantes</label><input type="number" id="variantes" value="1" min="1" max="16"></div>
+    </div>
+    <div class="fila">
+      <div><label for="semilla">Semilla</label><input type="number" id="semilla" value="0" min="0"></div>
+      <label class="check" style="align-self:end; padding-bottom:6px;"><input type="checkbox" id="aleatoria" checked> Aleatoria</label>
+    </div>
+
+    <div>
+      <label>Imagen de referencia (modo edición)</label>
+      <div class="ref">
+        <img id="ref-mini" alt="" hidden>
+        <input type="file" id="ref-archivo" accept="image/*" style="flex:1; min-width:0;">
+        <button id="ref-quitar" hidden title="Quitar referencia">×</button>
+      </div>
+      <p class="nota" id="ref-nota">Opcional. Con referencia, el prompt describe el cambio («quita el fondo», «hazlo en PLA rojo»…) y el tamaño sale de la imagen.</p>
+    </div>
+
+    <details>
+      <summary>Avanzado</summary>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div><label for="negativo">Prompt negativo (solo cuenta con CFG &gt; 1)</label><textarea id="negativo" rows="2"></textarea></div>
+        <div class="fila">
+          <div><label for="sampler">Sampler</label><select id="sampler"></select></div>
+          <div><label for="scheduler">Scheduler</label><select id="scheduler"></select></div>
+        </div>
+        <div><label for="modelo">Modelo (GGUF)</label><select id="modelo"></select></div>
+        <div><label for="codificador">Codificador de texto</label><select id="codificador"></select></div>
+        <div><label for="vae">VAE</label><select id="vae"></select></div>
+      </div>
+    </details>
+
+    <button class="primario" id="generar">Generar <kbd style="background:#0002;border-color:#0003">Ctrl+Enter</kbd></button>
+
+    <div class="cola" id="cola">
+      <div style="display:flex; justify-content:space-between;"><span id="cola-texto">En cola</span><button id="cancelar" style="padding:2px 8px; font-size:12px;">Cancelar</button></div>
+      <div class="barra"><div id="cola-barra"></div></div>
+    </div>
+    <p class="nota">La primera generación tarda más: carga el modelo (≈ 7,6 GB) y el codificador en memoria.</p>
+  </aside>
+
+  <main>
+    <div class="herramientas">
+      <div class="chips" id="filtros"></div>
+      <select id="min-estrellas" title="Puntuación mínima">
+        <option value="0">Cualquier nota</option><option value="3">★ 3 o más</option><option value="4">★ 4 o más</option><option value="5">★ 5</option>
+      </select>
+      <select id="orden"><option value="fecha">Más recientes</option><option value="estrellas">Mejor puntuadas</option></select>
+      <input type="text" id="buscar" placeholder="Buscar en los prompts…">
+      <button id="comparar" title="Elige dos imágenes y pulsa para verlas lado a lado">Comparar (0/2)</button>
+      <span class="contador" id="contador"></span>
+    </div>
+    <div class="rejilla" id="rejilla"></div>
+  </main>
+</div>
+
+<div class="visor" id="visor">
+  <div class="lienzo" id="lienzo">
+    <button class="flecha izq" id="anterior" title="Anterior (←)">‹</button>
+    <img id="visor-img" alt="">
+    <button class="flecha der" id="siguiente" title="Siguiente (→)">›</button>
+  </div>
+  <div class="ficha">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong id="visor-nombre" style="font-size:12px; word-break:break-all;"></strong>
+      <button id="visor-cerrar" title="Cerrar (Esc)">✕</button>
+    </div>
+    <div>
+      <label>Veredicto</label>
+      <div class="veredicto">
+        <button class="buena" data-estado="buena">✓ Buena</button>
+        <button data-estado="">Sin revisar</button>
+        <button class="descartada" data-estado="descartada">✗ Descartar</button>
+      </div>
+    </div>
+    <div><label>Puntuación</label><div class="estrellas" id="estrellas"></div></div>
+    <div><label for="nota">Notas</label><textarea id="nota" rows="3" placeholder="Qué falla, qué sirve, para qué cliente…"></textarea></div>
+    <div><label>Prompt</label><div class="prompt" id="visor-prompt"></div></div>
+    <dl class="datos" id="visor-datos"></dl>
+    <div class="acciones">
+      <button id="reusar" title="Carga estos ajustes en el formulario (R)">Reusar ajustes</button>
+      <button id="variar" title="Mismo prompt, otras 4 semillas (V)">4 variantes</button>
+      <button id="editar" title="Usarla como referencia para editarla (E)">Editar esta</button>
+      <button id="a3d" title="Copia a input/ para el flujo imagen → 3D">Enviar a 3D</button>
+      <a id="descargar" download><button style="width:100%">Descargar</button></a>
+      <button id="elegir" title="Añadir a la comparación (C)">Comparar</button>
+    </div>
+    <p class="atajos"><kbd>←</kbd><kbd>→</kbd> navegar · <kbd>B</kbd> buena · <kbd>X</kbd> descartar · <kbd>U</kbd> sin revisar · <kbd>1</kbd>–<kbd>5</kbd> nota · <kbd>clic</kbd> zoom 100 %</p>
+  </div>
+</div>
+
+<div class="comparador" id="comparador">
+  <div class="cab"><strong>Comparación</strong><button id="comparador-cerrar">Cerrar (Esc)</button></div>
+  <div class="lados" id="lados"></div>
+</div>
+
+<div class="aviso" id="aviso"></div>
+
+<script>
+"use strict";
+const CARPETA = "qwen21";
+const CLIENTE = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+const FORMATOS = [
+  ["1:1", 1, 1], ["4:3", 4, 3], ["3:4", 3, 4], ["3:2", 3, 2], ["2:3", 2, 3], ["16:9", 16, 9], ["9:16", 9, 16],
+];
+const FILTROS = [["todas", "Todas"], ["sin", "Sin revisar"], ["buena", "Buenas"], ["descartada", "Descartadas"]];
+
+const $ = (id) => document.getElementById(id);
+const estado = {
+  imagenes: [], revisiones: {}, filtro: "todas", formato: "1:1",
+  visibles: [], indice: -1, comparar: [],
+  trabajos: new Map(),   // prompt_id -> {inicio, total, hechas}
+  inicios: new Map(),    // prompt_id -> instante de execution_start (puede llegar antes que la respuesta de /prompt)
+  refImagen: null,       // nombre en input/ de la referencia subida
+};
+
+// ---------- utilidades ----------
+function aviso(texto, error = false) {
+  const a = $("aviso");
+  a.textContent = texto;
+  a.className = "aviso visible" + (error ? " error" : "");
+  clearTimeout(aviso.t);
+  aviso.t = setTimeout(() => (a.className = "aviso"), error ? 7000 : 3000);
+}
+function urlImagen(nombre) {
+  return `/view?filename=${encodeURIComponent(nombre)}&subfolder=${CARPETA}&type=output`;
+}
+async function json(url, opciones) {
+  const r = await fetch(url, opciones);
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+function post(url, datos) {
+  return json(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) });
+}
+function semillaAleatoria() { return Math.floor(Math.random() * 2 ** 48); }
+function tamano() {
+  const [, a, b] = FORMATOS.find((f) => f[0] === estado.formato);
+  const px = parseFloat($("mp").value) * 1024 * 1024;
+  const w = Math.round(Math.sqrt(px * a / b) / 32) * 32;
+  const h = Math.round(Math.sqrt(px * b / a) / 32) * 32;
+  return [w, h];
+}
+function pintarTamano() { const [w, h] = tamano(); $("tamano").textContent = `${w} × ${h}`; }
+function rellenar(select, opciones, preferida) {
+  select.innerHTML = "";
+  for (const o of opciones) select.add(new Option(o, o));
+  const elegida = opciones.find((o) => preferida && preferida.test(o));
+  if (elegida) select.value = elegida;
+}
+
+// ---------- formulario ----------
+function construirFormulario() {
+  for (const [nombre] of FORMATOS) {
+    const b = document.createElement("button");
+    b.textContent = nombre;
+    b.addEventListener("click", () => { estado.formato = nombre; marcarFormato(); pintarTamano(); });
+    $("formatos").appendChild(b);
+  }
+  marcarFormato();
+  pintarTamano();
+  $("mp").addEventListener("change", pintarTamano);
+  $("aleatoria").addEventListener("change", () => ($("semilla").disabled = $("aleatoria").checked));
+  $("semilla").disabled = true;
+  $("generar").addEventListener("click", () => generar());
+  $("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.ctrlKey) generar(); });
+  $("cancelar").addEventListener("click", cancelar);
+  $("ref-archivo").addEventListener("change", subirReferencia);
+  $("ref-quitar").addEventListener("click", () => ponerReferencia(null));
+}
+function marcarFormato() {
+  for (const b of $("formatos").children) b.classList.toggle("activo", b.textContent === estado.formato);
+}
+
+async function cargarOpciones() {
+  const info = await json("/object_info");
+  const lista = (clase, campo) => info[clase]?.input?.required?.[campo]?.[0] ?? [];
+  if (!info.UnetLoaderGGUF) aviso("Falta el nodo «Unet Loader (GGUF)»: revisa custom_nodes/ComfyUI-GGUF.", true);
+  if (!info.TextEncodeQwenImage21) aviso("Este ComfyUI no trae TextEncodeQwenImage21: actualízalo a 0.37 o posterior.", true);
+  rellenar($("modelo"), lista("UnetLoaderGGUF", "unet_name").filter((n) => /qwen.?image.?2\.1/i.test(n)), /Q8_0/);
+  rellenar($("codificador"), lista("CLIPLoader", "clip_name").filter((n) => /qwen3vl/i.test(n)), /int8/);
+  rellenar($("vae"), lista("VAELoader", "vae_name").filter((n) => /qwen/i.test(n)), /2\.1/);
+  rellenar($("sampler"), lista("KSampler", "sampler_name"), /^euler$/);
+  rellenar($("scheduler"), lista("KSampler", "scheduler"), /^simple$/);
+  if (!$("modelo").options.length) aviso("No hay ningún GGUF de Qwen-Image 2.1 en models/diffusion_models.", true);
+}
+
+async function subirReferencia() {
+  const archivo = $("ref-archivo").files[0];
+  if (!archivo) return;
+  const datos = new FormData();
+  datos.append("image", archivo);
+  datos.append("subfolder", "exo_estudio");
+  try {
+    const r = await json("/upload/image", { method: "POST", body: datos });
+    ponerReferencia(r.subfolder ? `${r.subfolder}/${r.name}` : r.name);
+  } catch (e) { aviso("No se pudo subir la referencia: " + e.message, true); }
+}
+function ponerReferencia(nombre) {
+  estado.refImagen = nombre;
+  const mini = $("ref-mini");
+  if (nombre) {
+    const partes = nombre.split("/");
+    const fichero = partes.pop();
+    mini.src = `/view?filename=${encodeURIComponent(fichero)}&subfolder=${encodeURIComponent(partes.join("/"))}&type=input`;
+  } else {
+    $("ref-archivo").value = "";
+  }
+  mini.hidden = $("ref-quitar").hidden = !nombre;
+  $("ref-archivo").hidden = !!nombre;
+  document.querySelectorAll(".chips#formatos button, #mp").forEach((el) => (el.disabled = !!nombre));
+  $("tamano").textContent = nombre ? "el de la referencia" : "";
+  if (!nombre) pintarTamano();
+}
+
+// ---------- generar ----------
+function textoFinal() {
+  let texto = $("prompt").value.trim();
+  if ($("para3d").checked)
+    texto += ". Single complete object, fully visible and centered, three-quarter view, plain neutral background, soft even lighting, no cropping, no text.";
+  if ($("transparente").checked)
+    texto = `This is an RGBA format image with transparency. ${texto} The image has an alpha channel and a transparent background.`;
+  return texto;
+}
+
+function grafo(semilla) {
+  const [w, h] = tamano();
+  const g = {
+    "1": { class_type: "UnetLoaderGGUF", inputs: { unet_name: $("modelo").value } },
+    "2": { class_type: "CLIPLoader", inputs: { clip_name: $("codificador").value, type: "qwen_image", device: "default" } },
+    "3": { class_type: "VAELoader", inputs: { vae_name: $("vae").value } },
+    "4": { class_type: "TextEncodeQwenImage21", inputs: {
+      clip: ["2", 0], vae: ["3", 0], prompt: textoFinal(), negative_prompt: $("negativo").value, resolution: 1024 } },
+    "5": { class_type: "EmptyLatentImage", inputs: { width: w, height: h, batch_size: 1 } },
+    "6": { class_type: "KSampler", inputs: {
+      model: ["1", 0], positive: ["4", 0], negative: ["4", 1], latent_image: ["5", 0],
+      seed: semilla, steps: +$("pasos").value, cfg: +$("cfg").value,
+      sampler_name: $("sampler").value, scheduler: $("scheduler").value, denoise: 1 } },
+    "7": { class_type: "VAEDecode", inputs: { samples: ["6", 0], vae: ["3", 0] } },
+    "9": { class_type: "SaveImage", inputs: { images: ["7", 0], filename_prefix: `${CARPETA}/qwen` } },
+  };
+  if (estado.refImagen) {
+    g["8"] = { class_type: "LoadImage", inputs: { image: estado.refImagen } };
+    g["4"].inputs["images.image_1"] = ["8", 0];
+    g["6"].inputs.latent_image = ["4", 2];   // el latente al tamano de la referencia
+    delete g["5"];
+  }
+  return g;
+}
+
+async function generar(n) {
+  if (!$("prompt").value.trim()) { aviso("Escribe primero qué quieres generar."); $("prompt").focus(); return; }
+  const cuantas = n ?? Math.max(1, Math.min(16, +$("variantes").value || 1));
+  let semilla = $("aleatoria").checked ? semillaAleatoria() : +$("semilla").value;
+  $("generar").disabled = true;
+  try {
+    for (let i = 0; i < cuantas; i++) {
+      const r = await post("/prompt", { prompt: grafo(semilla + i), client_id: CLIENTE });
+      estado.trabajos.set(r.prompt_id, { inicio: estado.inicios.get(r.prompt_id) ?? null, total: +$("pasos").value, hechos: 0 });
+    }
+    if (!$("aleatoria").checked) $("semilla").value = semilla + cuantas;
+    pintarCola();
+    pintarGaleria();
+  } catch (e) {
+    aviso("ComfyUI rechazó el trabajo: " + e.message.slice(0, 400), true);
+  } finally {
+    $("generar").disabled = false;
+  }
+}
+
+async function cancelar() {
+  const ids = [...estado.trabajos.keys()];
+  await post("/queue", { delete: ids }).catch(() => {});
+  await fetch("/interrupt", { method: "POST" }).catch(() => {});
+  estado.trabajos.clear();
+  pintarCola();
+}
+
+function pintarCola(actual) {
+  const n = estado.trabajos.size;
+  $("cola").classList.toggle("visible", n > 0);
+  if (!n) return;
+  const t = actual && estado.trabajos.get(actual);
+  if (t && t.inicio) {
+    const pct = t.total ? Math.round((t.hechos / t.total) * 100) : 0;
+    $("cola-barra").style.width = pct + "%";
+    const seg = ((performance.now() - t.inicio) / 1000).toFixed(0);
+    $("cola-texto").textContent = `Generando · paso ${t.hechos}/${t.total} · ${seg} s` + (n > 1 ? ` · ${n - 1} en espera` : "");
+  } else {
+    $("cola-barra").style.width = "0";
+    $("cola-texto").textContent = `${n} en cola`;
+  }
+}
+
+async function terminado(id) {
+  const t = estado.trabajos.get(id);
+  estado.trabajos.delete(id);
+  pintarCola();
+  try {
+    const historia = await json(`/history/${id}`);
+    const salidas = historia[id]?.outputs ?? {};
+    for (const salida of Object.values(salidas)) {
+      for (const img of salida.images ?? []) {
+        if (img.subfolder === CARPETA && t?.inicio)
+          await post("/exo/estudio/revision", { archivo: img.filename, segundos: +((performance.now() - t.inicio) / 1000).toFixed(1) });
+      }
+    }
+  } catch (e) { /* la imagen aparece igual en la galeria */ }
+  await cargarGaleria();
+}
+
+function conectar() {
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?clientId=${CLIENTE}`);
+  ws.onopen = () => ($("estado-servidor").textContent = "conectado");
+  ws.onclose = () => { $("estado-servidor").textContent = "sin conexión, reintentando…"; setTimeout(conectar, 2000); };
+  ws.onmessage = (ev) => {
+    if (typeof ev.data !== "string") return;   // vistas previas binarias
+    const { type, data } = JSON.parse(ev.data);
+    const id = data?.prompt_id;
+    const t = id && estado.trabajos.get(id);
+    if (type === "execution_start") {
+      estado.inicios.set(id, performance.now());
+      if (t) { t.inicio = estado.inicios.get(id); pintarCola(id); }
+    }
+    else if (type === "progress" && t) { t.hechos = data.value; t.total = data.max; pintarCola(id); }
+    else if (type === "execution_success" && t) terminado(id);
+    else if (type === "execution_error" && t) {
+      estado.trabajos.delete(id); pintarCola();
+      aviso(`Error en ${data.node_type}: ${data.exception_message}`.slice(0, 500), true);
+    } else if (type === "execution_interrupted" && t) { estado.trabajos.delete(id); pintarCola(); }
+  };
+}
+
+// ---------- galeria ----------
+async function cargarGaleria() {
+  const r = await json("/exo/estudio/imagenes");
+  estado.imagenes = r.imagenes;
+  estado.revisiones = r.revisiones;
+  pintarGaleria();
+}
+function rev(nombre) { return estado.revisiones[nombre] ?? {}; }
+
+function filtrar() {
+  const texto = $("buscar").value.trim().toLowerCase();
+  const minimo = +$("min-estrellas").value;
+  let lista = estado.imagenes.filter((img) => {
+    const r = rev(img.archivo);
+    if (estado.filtro === "sin" && r.estado) return false;
+    if (estado.filtro === "buena" && r.estado !== "buena") return false;
+    if (estado.filtro === "descartada" && r.estado !== "descartada") return false;
+    if (minimo && (r.estrellas ?? 0) < minimo) return false;
+    if (texto && !`${img.prompt ?? ""} ${r.nota ?? ""}`.toLowerCase().includes(texto)) return false;
+    return true;
+  });
+  if ($("orden").value === "estrellas")
+    lista = lista.slice().sort((a, b) => (rev(b.archivo).estrellas ?? 0) - (rev(a.archivo).estrellas ?? 0) || b.fecha - a.fecha);
+  return lista;
+}
+
+function pintarGaleria() {
+  estado.visibles = filtrar();
+  const rejilla = $("rejilla");
+  rejilla.innerHTML = "";
+  for (let i = 0; i < estado.trabajos.size; i++) {
+    const f = document.createElement("div");
+    f.className = "tarjeta";
+    f.innerHTML = '<div class="fantasma">generando…</div>';
+    rejilla.appendChild(f);
+  }
+  estado.visibles.forEach((img, i) => {
+    const r = rev(img.archivo);
+    const t = document.createElement("div");
+    t.className = "tarjeta" + (r.estado === "descartada" ? " descartada" : "") + (estado.comparar.includes(img.archivo) ? " elegida" : "");
+    const foto = document.createElement("img");
+    foto.loading = "lazy";
+    foto.src = urlImagen(img.archivo);
+    foto.alt = img.prompt ?? img.archivo;
+    t.appendChild(foto);
+    if (r.estado) {
+      const s = document.createElement("span");
+      s.className = "sello " + r.estado;
+      s.textContent = r.estado === "buena" ? "✓" : "✗";
+      t.appendChild(s);
+    }
+    if (r.estrellas) {
+      const s = document.createElement("span");
+      s.className = "estrellas-mini";
+      s.textContent = "★".repeat(r.estrellas);
+      t.appendChild(s);
+    }
+    const pie = document.createElement("div");
+    pie.className = "pie";
+    const a = document.createElement("span"); a.textContent = img.prompt ?? "(sin datos)";
+    const b = document.createElement("span"); b.textContent = r.segundos ? `${Math.round(r.segundos)} s` : "";
+    pie.append(a, b);
+    t.appendChild(pie);
+    t.addEventListener("click", (e) => (e.shiftKey || e.ctrlKey ? elegirComparar(img.archivo) : abrir(i)));
+    t.title = "Clic: abrir · Mayús+clic: elegir para comparar";
+    rejilla.appendChild(t);
+  });
+  if (!estado.visibles.length && !estado.trabajos.size) {
+    const v = document.createElement("div");
+    v.className = "vacio";
+    v.textContent = estado.imagenes.length ? "Ninguna imagen cumple el filtro." : "Aún no hay imágenes. Escribe un prompt y pulsa Generar.";
+    rejilla.appendChild(v);
+  }
+  const n = (k) => estado.imagenes.filter((img) => (rev(img.archivo).estado ?? "") === k).length;
+  $("contador").textContent = `${estado.visibles.length} de ${estado.imagenes.length} · ${n("buena")} buenas · ${n("descartada")} descartadas · ${n("")} sin revisar`;
+  $("comparar").textContent = `Comparar (${estado.comparar.length}/2)`;
+  $("comparar").disabled = estado.comparar.length !== 2;
+}
+
+function construirFiltros() {
+  for (const [clave, texto] of FILTROS) {
+    const b = document.createElement("button");
+    b.textContent = texto;
+    b.dataset.clave = clave;
+    b.addEventListener("click", () => { estado.filtro = clave; marcarFiltro(); pintarGaleria(); });
+    $("filtros").appendChild(b);
+  }
+  marcarFiltro();
+  $("buscar").addEventListener("input", pintarGaleria);
+  $("min-estrellas").addEventListener("change", pintarGaleria);
+  $("orden").addEventListener("change", pintarGaleria);
+  $("comparar").addEventListener("click", abrirComparador);
+}
+function marcarFiltro() {
+  for (const b of $("filtros").children) b.classList.toggle("activo", b.dataset.clave === estado.filtro);
+}
+
+// ---------- visor ----------
+function actual() { return estado.visibles[estado.indice]; }
+
+function abrir(i) {
+  estado.indice = i;
+  $("visor").classList.add("abierto");
+  $("lienzo").classList.remove("zoom");
+  pintarVisor();
+}
+function cerrar() { $("visor").classList.remove("abierto"); estado.indice = -1; guardarNota(); pintarGaleria(); }
+function mover(d) {
+  if (!estado.visibles.length) return;
+  guardarNota();
+  estado.indice = (estado.indice + d + estado.visibles.length) % estado.visibles.length;
+  $("lienzo").classList.remove("zoom");
+  pintarVisor();
+}
+
+function datosDe(img, r) {
+  return [
+    ["Tamaño", img.ancho ? `${img.ancho} × ${img.alto}` : "—"],
+    ["Semilla", img.seed ?? "—"],
+    ["Pasos", img.steps ?? "—"],
+    ["CFG", img.cfg ?? "—"],
+    ["Sampler", img.sampler_name ? `${img.sampler_name} / ${img.scheduler}` : "—"],
+    ["Modelo", img.modelo ?? "—"],
+    ["Referencia", img.imagen_ref ?? "no"],
+    ["Tiempo", r.segundos ? `${r.segundos} s` : "—"],
+    ["Fecha", new Date(img.fecha * 1000).toLocaleString("es")],
+  ];
+}
+
+function pintarVisor() {
+  const img = actual();
+  if (!img) return cerrar();
+  const r = rev(img.archivo);
+  $("visor-img").src = urlImagen(img.archivo);
+  $("visor-nombre").textContent = `${estado.indice + 1}/${estado.visibles.length} · ${img.archivo}`;
+  $("visor-prompt").textContent = img.prompt ?? "(la imagen no guarda el prompt)";
+  const dl = $("visor-datos");
+  dl.innerHTML = "";
+  for (const [k, v] of datosDe(img, r)) {
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v;
+    dl.append(dt, dd);
+  }
+  for (const b of document.querySelectorAll(".veredicto button")) b.classList.toggle("activo", (r.estado ?? "") === b.dataset.estado);
+  const est = $("estrellas");
+  est.innerHTML = "";
+  for (let n = 1; n <= 5; n++) {
+    const b = document.createElement("button");
+    b.textContent = "★";
+    b.title = `${n} (tecla ${n})`;
+    b.className = n <= (r.estrellas ?? 0) ? "on" : "";
+    b.addEventListener("click", () => revisar({ estrellas: r.estrellas === n ? 0 : n }));
+    est.appendChild(b);
+  }
+  $("nota").value = r.nota ?? "";
+  $("descargar").href = urlImagen(img.archivo);
+  $("descargar").download = img.archivo;
+  $("elegir").classList.toggle("activo", estado.comparar.includes(img.archivo));
+}
+
+async function revisar(cambios, nombre = actual()?.archivo) {
+  if (!nombre) return;
+  estado.revisiones[nombre] = { ...rev(nombre), ...cambios };
+  if (estado.indice >= 0) pintarVisor();
+  try { await post("/exo/estudio/revision", { archivo: nombre, ...cambios }); }
+  catch (e) { aviso("No se guardó la revisión: " + e.message, true); }
+}
+function guardarNota() {
+  const img = actual();
+  if (img && $("nota").value !== (rev(img.archivo).nota ?? "")) revisar({ nota: $("nota").value }, img.archivo);
+}
+
+function reusar(img) {
+  $("prompt").value = img.prompt ?? "";
+  $("negativo").value = img.negativo ?? "";
+  $("transparente").checked = $("para3d").checked = false;
+  if (img.steps) $("pasos").value = img.steps;
+  if (img.cfg) $("cfg").value = img.cfg;
+  if (img.sampler_name) $("sampler").value = img.sampler_name;
+  if (img.scheduler) $("scheduler").value = img.scheduler;
+  if (img.modelo && [...$("modelo").options].some((o) => o.value === img.modelo)) $("modelo").value = img.modelo;
+  if (img.seed != null) { $("semilla").value = img.seed; $("aleatoria").checked = false; $("semilla").disabled = false; }
+  if (img.ancho && !img.referencia) {
+    const ar = img.ancho / img.alto;
+    const mejor = FORMATOS.reduce((m, f) => (Math.abs(f[1] / f[2] - ar) < Math.abs(m[1] / m[2] - ar) ? f : m));
+    estado.formato = mejor[0];
+    const mp = (img.ancho * img.alto) / (1024 * 1024);
+    $("mp").value = [...$("mp").options].reduce((m, o) => (Math.abs(o.value - mp) < Math.abs(m.value - mp) ? o : m)).value;
+    marcarFormato(); pintarTamano();
+  }
+  ponerReferencia(img.referencia ? img.imagen_ref ?? null : null);
+}
+
+function construirVisor() {
+  $("visor-cerrar").addEventListener("click", cerrar);
+  $("anterior").addEventListener("click", (e) => { e.stopPropagation(); mover(-1); });
+  $("siguiente").addEventListener("click", (e) => { e.stopPropagation(); mover(1); });
+  $("visor-img").addEventListener("click", () => $("lienzo").classList.toggle("zoom"));
+  for (const b of document.querySelectorAll(".veredicto button"))
+    b.addEventListener("click", () => revisar({ estado: b.dataset.estado || null }));
+  $("nota").addEventListener("blur", guardarNota);
+  $("reusar").addEventListener("click", () => { reusar(actual()); cerrar(); aviso("Ajustes cargados en el formulario."); });
+  $("variar").addEventListener("click", () => {
+    reusar(actual()); $("aleatoria").checked = true; $("semilla").disabled = true;
+    cerrar(); generar(4);
+  });
+  $("editar").addEventListener("click", async () => {
+    try {
+      const r = await post("/exo/estudio/a_entrada", { archivo: actual().archivo });
+      ponerReferencia(r.entrada);
+      $("prompt").value = ""; $("transparente").checked = $("para3d").checked = false;
+      cerrar(); $("prompt").focus();
+      aviso("Referencia puesta. Describe el cambio y genera.");
+    } catch (e) { aviso(e.message, true); }
+  });
+  $("a3d").addEventListener("click", async () => {
+    try {
+      const r = await post("/exo/estudio/a_entrada", { archivo: actual().archivo });
+      aviso(`Copiada a input/${r.entrada}: elígela en «Load Image» del flujo imagen → pieza.`);
+    } catch (e) { aviso(e.message, true); }
+  });
+  $("elegir").addEventListener("click", () => { elegirComparar(actual().archivo); pintarVisor(); });
+  $("comparador-cerrar").addEventListener("click", () => $("comparador").classList.remove("abierto"));
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input, textarea, select")) { if (e.key === "Escape") e.target.blur(); return; }
+    if ($("comparador").classList.contains("abierto")) { if (e.key === "Escape") $("comparador").classList.remove("abierto"); return; }
+    if (!$("visor").classList.contains("abierto")) return;
+    const teclas = {
+      Escape: cerrar, ArrowLeft: () => mover(-1), ArrowRight: () => mover(1),
+      b: () => revisar({ estado: "buena" }), x: () => revisar({ estado: "descartada" }), u: () => revisar({ estado: null }),
+      r: () => $("reusar").click(), v: () => $("variar").click(), e: () => $("editar").click(), c: () => $("elegir").click(),
+    };
+    const f = teclas[e.key] ?? teclas[e.key.toLowerCase()];
+    if (f) { e.preventDefault(); f(); }
+    else if (/^[1-5]$/.test(e.key)) revisar({ estrellas: +e.key });
+  });
+}
+
+// ---------- comparar ----------
+function elegirComparar(nombre) {
+  const i = estado.comparar.indexOf(nombre);
+  if (i >= 0) estado.comparar.splice(i, 1);
+  else { estado.comparar.push(nombre); if (estado.comparar.length > 2) estado.comparar.shift(); }
+  pintarGaleria();
+}
+function abrirComparador() {
+  const fichas = estado.comparar.map((n) => estado.imagenes.find((i) => i.archivo === n)).filter(Boolean);
+  if (fichas.length !== 2) return;
+  const datos = fichas.map((f) => [["Prompt", f.prompt ?? "—"], ...datosDe(f, rev(f.archivo)), ["Nota", rev(f.archivo).nota || "—"]]);
+  const lados = $("lados");
+  lados.innerHTML = "";
+  fichas.forEach((f, k) => {
+    const lado = document.createElement("div");
+    lado.className = "lado";
+    const img = document.createElement("img"); img.src = urlImagen(f.archivo);
+    const dl = document.createElement("dl"); dl.className = "datos";
+    datos[k].forEach(([clave, valor], j) => {
+      if (clave === "Fecha") return;
+      const dt = document.createElement("dt"); dt.textContent = clave;
+      const dd = document.createElement("dd"); dd.textContent = valor;
+      if (String(valor) !== String(datos[1 - k][j][1]) && clave !== "Tiempo") dd.className = "distinto";
+      dl.append(dt, dd);
+    });
+    lado.append(img, dl);
+    lados.appendChild(lado);
+  });
+  $("comparador").classList.add("abierto");
+}
+
+// ---------- arranque ----------
+construirFormulario();
+construirFiltros();
+construirVisor();
+conectar();
+cargarOpciones().catch((e) => aviso("No pude leer los nodos de ComfyUI: " + e.message, true));
+cargarGaleria().catch((e) => aviso("No pude leer la galería: " + e.message, true));
+</script>
+</body>
+</html>

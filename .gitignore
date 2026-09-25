@@ -1,0 +1,43 @@
+# Nada de lo que produce el flujo entra al repositorio.
+/output/
+/outputs/
+/pruebas/
+/input/
+*.stl
+*.obj
+*.mtl
+*.glb
+*.gltf
+*.3mf
+*.ply
+
+# Modelos y pesos (decenas de GB)
+models/
+*.safetensors
+*.ckpt
+*.gguf
+*.pt
+*.pth
+*.bin
+
+# Imagenes y renders generados
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# Registros y temporales
+*.log
+comfy_log.txt
+comfy_err.txt
+*.json.bak
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Ajustes locales que pueden llevar rutas o datos propios
+user/
+settings.json
+extra_model_paths.yaml
+revisiones.json
