@@ -7,10 +7,12 @@ La generacion va por la API normal de ComfyUI (/prompt y el websocket); aqui sol
 estan las rutas que la API no trae: listar lo generado con sus ajustes (leidos del
 propio PNG, asi sobreviven a reinicios) y guardar la revision de cada imagen.
 """
+import asyncio
 import json
 import os
 import shutil
 import threading
+import uuid
 from pathlib import Path
 
 from aiohttp import web
@@ -121,6 +123,115 @@ async def revision(peticion):
         todas[nombre] = actual
         _fichero_revisiones().write_text(json.dumps(todas, indent=1, ensure_ascii=False), encoding="utf-8")
     return web.json_response(actual)
+
+
+_bucles = {}   # id -> estado del bucle en curso
+
+
+async def _generar_y_esperar(grafo, tiempo_max=600):
+    """Encola un grafo en ComfyUI y espera a que acabe. Devuelve el nombre del PNG."""
+    import aiohttp
+
+    async with aiohttp.ClientSession() as sesion:
+        async with sesion.post("http://127.0.0.1:8188/prompt", json={"prompt": grafo}) as r:
+            respuesta = await r.json()
+        if respuesta.get("node_errors"):
+            raise RuntimeError(json.dumps(respuesta["node_errors"])[:400])
+        pid = respuesta["prompt_id"]
+
+        limite = asyncio.get_event_loop().time() + tiempo_max
+        while asyncio.get_event_loop().time() < limite:
+            await asyncio.sleep(2)
+            async with sesion.get(f"http://127.0.0.1:8188/history/{pid}") as r:
+                historial = await r.json()
+            if pid not in historial:
+                continue
+            estado = historial[pid].get("status", {})
+            if estado.get("status_str") != "success":
+                raise RuntimeError(json.dumps(estado.get("messages", []))[:400])
+            for salida in historial[pid]["outputs"].values():
+                for imagen in salida.get("images", []):
+                    return imagen["filename"]
+            raise RuntimeError("el trabajo no devolvio ninguna imagen")
+    raise RuntimeError("se agoto el tiempo esperando a ComfyUI")
+
+
+async def _correr_bucle(id_bucle, grafo, intentos):
+    """Generar -> criticar -> corregir, hasta que salga limpia o se agoten los intentos."""
+    from PIL import Image
+
+    from .critica import corregir, criticar, resumen
+
+    estado = _bucles[id_bucle]
+    nodo_texto = next((n for n, d in grafo.items() if d.get("class_type") == "TextEncodeQwenImage21"), None)
+    nodo_muestreo = next((n for n, d in grafo.items() if d.get("class_type") == "KSampler"), None)
+    if not nodo_texto or not nodo_muestreo:
+        estado.update(terminado=True, error="el grafo no trae los nodos esperados")
+        return
+
+    sin_mejora = 0
+    for vuelta in range(int(intentos)):
+        estado["intento"] = vuelta + 1
+        try:
+            archivo = await _generar_y_esperar(grafo)
+        except Exception as e:
+            estado.update(terminado=True, error=str(e)[:300])
+            return
+
+        ruta = _salida() / archivo
+        informe = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: criticar(Image.open(ruta)))
+        prompt_usado = grafo[nodo_texto]["inputs"].get("prompt", "")
+        estado["historial"].append({
+            "archivo": archivo,
+            "puntuacion": informe.get("puntuacion"),
+            "defectos": informe.get("defectos", []),
+            "detalle": informe.get("detalle", []),
+            "resumen": resumen(informe),
+            "prompt": prompt_usado,
+        })
+
+        mejor = estado.get("mejor")
+        if mejor is None or (informe.get("puntuacion") or 0) > (mejor.get("puntuacion") or 0):
+            estado["mejor"] = estado["historial"][-1]
+            sin_mejora = 0
+        else:
+            sin_mejora += 1
+
+        if informe.get("apto"):
+            break
+        # Dos vueltas sin mejorar: se para para no gastar GPU de balde.
+        if sin_mejora >= 2 or vuelta == int(intentos) - 1:
+            break
+
+        nuevo, negativo, cambios = corregir(
+            prompt_usado, grafo[nodo_texto]["inputs"].get("negative_prompt", ""),
+            informe, grafo[nodo_muestreo]["inputs"].get("seed", 0))
+        grafo[nodo_texto]["inputs"]["prompt"] = nuevo
+        grafo[nodo_texto]["inputs"]["negative_prompt"] = negativo
+        grafo[nodo_muestreo]["inputs"]["seed"] = cambios["seed"]
+        if "steps" in cambios:
+            grafo[nodo_muestreo]["inputs"]["steps"] = cambios["steps"]
+
+    estado["terminado"] = True
+
+
+@rutas.post("/exo/estudio/bucle")
+async def bucle(peticion):
+    """Arranca el bucle de correccion y devuelve un id para seguirlo."""
+    datos = await peticion.json()
+    id_bucle = uuid.uuid4().hex[:12]
+    _bucles[id_bucle] = {"intento": 0, "historial": [], "mejor": None, "terminado": False, "error": ""}
+    asyncio.create_task(_correr_bucle(id_bucle, datos["grafo"], datos.get("intentos", 3)))
+    return web.json_response({"id": id_bucle})
+
+
+@rutas.get("/exo/estudio/bucle/{id_bucle}")
+async def bucle_estado(peticion):
+    estado = _bucles.get(peticion.match_info["id_bucle"])
+    if estado is None:
+        raise web.HTTPNotFound(text="ese bucle no existe")
+    return web.json_response(estado)
 
 
 @rutas.post("/exo/estudio/prompt")

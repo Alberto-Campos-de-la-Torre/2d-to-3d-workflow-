@@ -208,6 +208,96 @@ class ExoInformeImpresion(IO.ComfyNode):
         return IO.NodeOutput(salida, informe, float(peso) if fiable else 0.0, ui={"text": (informe,)})
 
 
+def _a_pil(imagen):
+    """IMAGE de ComfyUI (B,H,W,C en 0..1) -> PIL, primera del lote."""
+    from PIL import Image
+
+    datos = imagen[0].detach().cpu().numpy()
+    return Image.fromarray(np.clip(datos * 255, 0, 255).astype(np.uint8))
+
+
+class ExoRevisarImagen(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(
+            node_id="ExoRevisarImagen",
+            display_name="Revisar imagen (Exo)",
+            category="3d/exo filaments",
+            description=(
+                "Mira la imagen con tu IA local y busca lo que arruina la conversion a 3D: objeto "
+                "recortado, varios objetos, marca de agua, partes finas, transparencias. En figuras y "
+                "personajes revisa ademas la anatomia (extremidades de mas, partes fusionadas, manos). "
+                "Devuelve el informe, si esta apta y una puntuacion para comparar intentos."
+            ),
+            inputs=[
+                IO.Image.Input("image"),
+                IO.Combo.Input("revisar_anatomia", options=["auto", "siempre", "nunca"], default="auto",
+                               tooltip="'auto' la revisa solo si la IA ve una figura, un animal o un personaje."),
+            ],
+            outputs=[
+                IO.String.Output("informe"),
+                IO.Boolean.Output("apto"),
+                IO.Float.Output("puntuacion"),
+            ],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(cls, image, revisar_anatomia):
+        from .critica import criticar, resumen
+
+        modo = {"auto": "auto", "siempre": True, "nunca": False}[revisar_anatomia]
+        informe = criticar(_a_pil(image), modo)
+        texto = resumen(informe)
+        return IO.NodeOutput(json.dumps(informe, ensure_ascii=False), bool(informe.get("apto")),
+                             float(informe.get("puntuacion") or 0.0), ui={"text": (texto,)})
+
+
+class ExoCorregirPrompt(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(
+            node_id="ExoCorregirPrompt",
+            display_name="Corregir prompt (Exo)",
+            category="3d/exo filaments",
+            description=(
+                "Toma el informe de 'Revisar imagen' y devuelve el prompt corregido, el negativo "
+                "reforzado y una semilla nueva. Las correcciones son fijas por tipo de defecto, no "
+                "improvisadas: cambiar la semilla es lo que mas arregla los fallos de anatomia."
+            ),
+            inputs=[
+                IO.String.Input("prompt", multiline=True, default=""),
+                IO.String.Input("informe", multiline=True, default="",
+                                tooltip="La salida 'informe' del nodo Revisar imagen."),
+                IO.String.Input("negativo", multiline=False, default=""),
+                IO.Int.Input("semilla", default=0, min=0, max=0xFFFFFFFF),
+            ],
+            outputs=[
+                IO.String.Output("prompt"),
+                IO.String.Output("negativo"),
+                IO.Int.Output("semilla"),
+                IO.Int.Output("pasos"),
+            ],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(cls, prompt, informe, negativo, semilla):
+        from .critica import corregir
+
+        try:
+            datos = json.loads(informe) if informe.strip() else {}
+        except json.JSONDecodeError:
+            datos = {}
+        nuevo, nuevo_negativo, cambios = corregir(prompt, negativo, datos, semilla)
+        defectos = datos.get("defectos") or []
+        texto = (f"defectos: {', '.join(defectos) if defectos else 'ninguno'}\n"
+                 f"semilla: {semilla} -> {cambios['seed']}\n"
+                 f"pasos: {cambios.get('steps', 20)}\n\n{nuevo}")
+        return IO.NodeOutput(nuevo, nuevo_negativo, int(cambios["seed"]), int(cambios.get("steps", 20)),
+                             ui={"text": (texto,)})
+
+
 class ExoPromptIA(IO.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -611,10 +701,11 @@ def _escribir_obj(destino, vertices, caras, color_vert):
 class ExtensionExoFilaments(ComfyExtension):
     @override
     async def get_node_list(self):
-        return [ExoPromptIA, ExoSolidificar, ExoPaletaFilamentos, ExoInformeImpresion,
-                ExoRevisarGrosor, ExoGuardarImpresion]
+        return [ExoPromptIA, ExoRevisarImagen, ExoCorregirPrompt, ExoSolidificar,
+                ExoPaletaFilamentos, ExoInformeImpresion, ExoRevisarGrosor, ExoGuardarImpresion]
 
 
 async def comfy_entrypoint() -> ExtensionExoFilaments:
     return ExtensionExoFilaments()
+
 

@@ -114,6 +114,39 @@ Sirve cualquier servidor con API compatible con OpenAI: llama.cpp, LM Studio, Ol
 vLLM. Si `ia_modelo` esta vacio, usa el primero que sirva el servidor. **Si la IA no
 responde, el flujo sigue con la idea tal cual y lo avisa**: no se queda parado.
 
+### Generar hasta que salga bien (revisa y se corrige solo)
+
+El boton **"Generar hasta que salga bien"** genera, **mira la imagen** con tu IA local y, si
+encuentra defectos, reescribe el prompt y vuelve a intentarlo. Debajo aparece la tira de
+intentos con la puntuacion y lo que fallaba en cada uno; al pulsar una miniatura se recupera
+el prompt que la genero.
+
+Que busca:
+
+| Familia | Que detecta |
+|---|---|
+| Encuadre y material | objeto recortado, varios objetos, fondo sucio, sombras duras, marca de agua, partes finas, vidrio o transparencias |
+| Anatomia (solo en figuras, animales y personajes) | extremidades de mas, partes fusionadas, manos mal resueltas, asimetrias y proporciones imposibles |
+
+Como corrige: anade instrucciones al prompt segun el defecto, refuerza el prompt negativo y
+**cambia la semilla** (lo que mas arregla los fallos de anatomia). Con partes finas o manos
+sube los pasos de 20 a 28. El `cfg` no lo toca: este modelo va destilado a 1,0.
+
+Se detiene al primer intento sin defectos, o cuando agota los intentos. **Devuelve el mejor,
+no el ultimo**, porque a veces el siguiente sale peor.
+
+**Que NO hace**: no arregla lo que es imposible. Con un girasol de petalos finos corrigio el
+encuadre (de 5/10 a 8/10) pero las partes finas siguieron ahi en los tres intentos: un
+girasol es fino por naturaleza. Cuando un defecto se repite en todos los intentos, la
+respuesta suele ser cambiar de tema, no insistir.
+
+Tambien esta como nodos —**Revisar imagen (Exo)** y **Corregir prompt (Exo)**— para montarlo
+en un grafo propio. Un pase por ejecucion, sin bucle.
+
+**Limite conocido**: caza los defectos evidentes, no todos. En pruebas detecto una cabeza
+duplicada, pero no vio una franja de brazo repetida mas sutil. Es una red de seguridad, no
+un control de calidad: la ultima revision sigue siendo tuya.
+
 ### Como escribir el prompt a mano
 
 El generador crea imagenes bonitas; nosotros necesitamos imagenes **utiles para 3D**. La

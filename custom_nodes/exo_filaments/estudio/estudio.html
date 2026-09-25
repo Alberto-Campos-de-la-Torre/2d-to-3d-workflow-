@@ -133,6 +133,13 @@
         <small id="ia-estado" style="opacity:.7"></small>
       </div>
     </div>
+    <div class="fila" style="align-items:center; gap:10px; margin:4px 0 2px">
+      <button id="hasta-bien" title="Genera, revisa la imagen y corrige el prompt hasta que salga sin defectos">Generar hasta que salga bien</button>
+      <label for="intentos-bucle" style="opacity:.8">intentos</label>
+      <select id="intentos-bucle" style="width:64px"><option>2</option><option selected>3</option><option>4</option></select>
+    </div>
+    <div id="tira-intentos" hidden style="display:flex; flex-direction:column; gap:6px; margin:4px 0 8px"></div>
+
     <label class="check"><input type="checkbox" id="transparente"> Fondo transparente (PNG con canal alfa)</label>
     <label class="check"><input type="checkbox" id="para3d"> Pensada para pasar a 3D (objeto entero, centrado, fondo liso)</label>
 
@@ -319,6 +326,71 @@ function construirFormulario() {
   $("ref-quitar").addEventListener("click", () => ponerReferencia(null));
   $("escribir-ia").addEventListener("click", escribirConIA);
   $("deshacer-ia").addEventListener("click", deshacerIA);
+  $("hasta-bien").addEventListener("click", generarHastaQueSalgaBien);
+}
+
+// ---------- bucle: generar, revisar y corregir ----------
+async function generarHastaQueSalgaBien() {
+  if (!$("prompt").value.trim()) { aviso("Escribe primero qué quieres generar."); $("prompt").focus(); return; }
+  const boton = $("hasta-bien");
+  boton.disabled = true;
+  $("generar").disabled = true;
+  pintarIntentos([], 0, "arrancando…");
+  try {
+    const semilla = $("aleatoria").checked ? semillaAleatoria() : +$("semilla").value;
+    const r = await post("/exo/estudio/bucle", {
+      grafo: grafo(semilla),
+      intentos: +$("intentos-bucle").value,
+    });
+    // Se consulta el progreso cada 2 s: cada vuelta son ~25 s de imagen y ~10 s de revisión.
+    let estado;
+    do {
+      await new Promise((r) => setTimeout(r, 2000));
+      estado = await (await fetch(`/exo/estudio/bucle/${r.id}`)).json();
+      pintarIntentos(estado.historial, estado.intento, estado.terminado ? "" : "generando…");
+    } while (!estado.terminado);
+
+    if (estado.error) aviso("El bucle se detuvo: " + estado.error, true);
+    else if (estado.mejor) {
+      $("prompt").value = estado.mejor.prompt;
+      aviso(estado.mejor.defectos.length
+        ? `Mejor intento: ${estado.mejor.puntuacion}/10, aún con ${estado.mejor.defectos.join(", ")}.`
+        : `Listo a la ${estado.historial.length}ª: sin defectos (${estado.mejor.puntuacion}/10).`);
+    }
+    pintarGaleria();
+  } catch (e) {
+    aviso("No se pudo completar el bucle: " + e.message, true);
+  } finally {
+    boton.disabled = false;
+    $("generar").disabled = false;
+  }
+}
+
+function pintarIntentos(historial, enCurso, nota) {
+  const caja = $("tira-intentos");
+  caja.hidden = false;
+  caja.innerHTML = "";
+  (historial || []).forEach((intento, i) => {
+    const fila = document.createElement("div");
+    fila.style.cssText = "display:flex; gap:8px; align-items:center; font-size:12px";
+    const img = document.createElement("img");
+    img.src = `/view?filename=${encodeURIComponent(intento.archivo)}&subfolder=${CARPETA}&type=output`;
+    img.style.cssText = "width:56px; height:56px; object-fit:cover; border-radius:6px; cursor:pointer";
+    img.title = intento.prompt;
+    img.addEventListener("click", () => { $("prompt").value = intento.prompt; });
+    const txt = document.createElement("div");
+    txt.innerHTML = `<b>Intento ${i + 1} · ${intento.puntuacion}/10</b><br>` +
+      (intento.defectos.length ? intento.detalle.join("<br>") : "sin defectos");
+    txt.style.cssText = "line-height:1.4; opacity:.85";
+    fila.append(img, txt);
+    caja.appendChild(fila);
+  });
+  if (nota) {
+    const p = document.createElement("small");
+    p.textContent = enCurso ? `${nota} (intento ${enCurso})` : nota;
+    p.style.opacity = ".7";
+    caja.appendChild(p);
+  }
 }
 
 // ---------- prompt escrito por la IA local ----------

@@ -1,0 +1,265 @@
+"""Revisa una imagen generada y propone como corregir el prompt.
+
+Tres capas:
+- revision general: encuadre y material (un objeto, recortado, fondo, marca de agua,
+  partes finas, transparencias).
+- revision anatomica: solo en figuras y personajes. Extremidades de mas, partes
+  fusionadas, manos mal resueltas, proporciones imposibles.
+- encuadre por numeros: sin modelos, solo para corroborar recorte y tamano del objeto.
+
+Sobre como se pregunta: el modelo contesta "todo bien" si se le pide el JSON de golpe.
+Con una figura manipulada a proposito (una segunda cabeza pegada encima) el JSON directo
+decia "sin defectos"; obligandole a enumerar en voz alta antes de responder, la detecto.
+Por eso la revision anatomica describe primero y cierra con el JSON en la misma respuesta.
+"""
+import base64
+import io
+import json
+import re
+import urllib.error
+import urllib.request
+
+import numpy as np
+
+from .prompt_ia import ajustes, modelo_disponible
+
+TIEMPO = 240
+
+REVISION_GENERAL = (
+    "Revisas imagenes que se van a convertir en modelos 3D imprimibles. "
+    "Mira la imagen y responde SOLO con este JSON, sin texto alrededor:\n"
+    '{"tipo":"<objeto|animal|persona|personaje>","objetos":<cuantos objetos principales>,'
+    '"recortado":<true si el objeto se sale del encuadre>,"fondo_liso":<true/false>,'
+    '"sombras_duras":<true/false>,"texto_o_marca":<true/false>,'
+    '"partes_finas":<true si hay partes delgadas o ramificadas>,'
+    '"transparente":<true si es vidrio o translucido>,"que_es":"<en 3 palabras>",'
+    '"problemas":["<breve>"]}'
+)
+
+REVISION_ANATOMIA = (
+    "Revisas figuras que se van a imprimir en 3D.\n"
+    "PASO 1: describe la figura parte por parte. Cuantas cabezas, brazos, piernas, manos, "
+    "dedos por mano, alas y colas ves, y donde esta cada una. Cuenta en voz alta.\n"
+    "PASO 2: termina con una unica linea que empiece por JSON: y contenga\n"
+    '{"extremidades_de_mas":<true/false>,"partes_fusionadas":<true/false>,'
+    '"asimetria_rara":<true/false>,"proporciones_raras":<true/false>,"manos_mal":<true/false>,'
+    '"defectos":["<donde y que, en pocas palabras>"]}\n'
+    "Cuenta solo lo que VES con claridad. No inventes defectos."
+)
+
+# Peso de cada defecto al puntuar. Sirve para comparar intentos entre si.
+PESOS = {
+    "anatomia": 3, "recortado": 3, "varios_objetos": 2, "transparente": 2,
+    "partes_finas": 2, "texto_o_marca": 2, "fondo_sucio": 1, "sombras_duras": 1,
+    "encuadre": 1,
+}
+
+# Que anadir al prompt y al negativo por cada defecto. Fijo, para que la IA no improvise.
+REMEDIOS = {
+    "anatomia": ("correct anatomy, exactly two arms and two legs, five fingers per hand, "
+                 "symmetrical body, clean silhouette",
+                 "extra limbs, extra arms, extra legs, extra fingers, fused body parts, "
+                 "deformed hands, mutated anatomy, malformed"),
+    "recortado": ("full object visible, nothing cut off, wide framing with margin", "cropped, cut off"),
+    "varios_objetos": ("exactly one single object, nothing else in the frame", "multiple objects, group"),
+    "texto_o_marca": ("", "text, watermark, logo, signature, letters"),
+    "partes_finas": ("thick solid forms, chunky proportions, no thin parts", "thin fragile parts, wires, hair strands"),
+    "transparente": ("opaque matte material, solid surface", "glass, transparent, translucent, reflections"),
+    "fondo_sucio": ("plain seamless neutral background", "busy background, scenery, props"),
+    "sombras_duras": ("soft even studio lighting", "hard shadows, harsh light"),
+    "encuadre": ("object fills the frame, centered", ""),
+}
+
+
+def _extraer_json(texto):
+    """Coge el ultimo bloque {...} del texto: el modelo suele envolverlo en prosa."""
+    if not texto:
+        return {}
+    bloques = re.findall(r"\{.*?\}", texto, re.S)
+    for bloque in reversed(bloques):
+        try:
+            return json.loads(bloque)
+        except json.JSONDecodeError:
+            continue
+    return {}
+
+
+def _preguntar(imagen, pregunta, tokens=700, temperatura=0.2):
+    """Una consulta con imagen a la IA local. Devuelve (texto, aviso)."""
+    cfg = ajustes()
+    url = cfg["ia_url"].rstrip("/")
+    try:
+        modelo = cfg["ia_modelo"] or modelo_disponible(url)
+    except Exception as e:
+        return "", f"no se pudo consultar {url}: {e}"
+
+    buffer = io.BytesIO()
+    imagen.convert("RGB").save(buffer, format="PNG")
+    datos = base64.b64encode(buffer.getvalue()).decode()
+
+    cuerpo = {
+        "model": modelo,
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": pregunta},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{datos}"}},
+        ]}],
+        "max_tokens": tokens,
+        "temperature": temperatura,
+        "stream": False,
+        # Con el razonamiento puesto se gasta los tokens pensando y devuelve vacio.
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    peticion = urllib.request.Request(url + "/chat/completions",
+                                      data=json.dumps(cuerpo).encode("utf-8"),
+                                      headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(peticion, timeout=TIEMPO) as r:
+            respuesta = json.loads(r.read())
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        return "", f"la IA no respondio ({e})"
+    return (respuesta.get("choices") or [{}])[0].get("message", {}).get("content", "") or "", ""
+
+
+def medir_encuadre(imagen):
+    """Tres numeros que la IA mide mal: si toca el borde, cuanto ocupa y si esta centrado.
+
+    La mascara sale del canal alfa si lo hay, o de comparar con el color del borde. Solo
+    vale porque exigimos fondo liso; por eso estos numeros corroboran, no deciden.
+    """
+    from scipy import ndimage
+
+    pequena = imagen.copy()
+    pequena.thumbnail((512, 512))
+    if pequena.mode == "RGBA" and np.asarray(pequena)[..., 3].min() < 250:
+        objeto = np.asarray(pequena)[..., 3] > 128
+    else:
+        a = np.asarray(pequena.convert("RGB"), dtype=np.float32) / 255.0
+        borde = np.concatenate([a[0], a[-1], a[:, 0], a[:, -1]])
+        color_fondo = np.median(borde, axis=0)
+        ruido = float(borde.std(axis=0).mean())
+        objeto = np.linalg.norm(a - color_fondo, axis=2) > max(0.10, ruido * 3)
+        objeto = ndimage.binary_opening(objeto, iterations=2)
+
+    etiquetas, cuantos = ndimage.label(objeto)
+    if not cuantos:
+        return {"area": 0.0, "toca_borde": False, "descentrado": 0.0, "trozos": 0}
+
+    tamanos = ndimage.sum(objeto, etiquetas, range(1, cuantos + 1))
+    principal = etiquetas == (int(np.argmax(tamanos)) + 1)
+    alto, ancho = principal.shape
+    centro_y, centro_x = ndimage.center_of_mass(principal)
+    return {
+        "area": round(float(principal.sum()) / (alto * ancho), 3),
+        "toca_borde": bool(principal[0].any() or principal[-1].any()
+                           or principal[:, 0].any() or principal[:, -1].any()),
+        "descentrado": round(float(np.hypot(centro_x / ancho - 0.5, centro_y / alto - 0.5)), 3),
+        "trozos": int((tamanos > tamanos.max() * 0.08).sum()),
+    }
+
+
+def criticar(imagen, revisar_anatomia="auto"):
+    """Informe completo de una imagen PIL. Devuelve un dict con defectos y puntuacion."""
+    informe = {"defectos": [], "detalle": [], "avisos": []}
+
+    texto, aviso = _preguntar(imagen, REVISION_GENERAL, tokens=500)
+    if aviso:
+        informe["avisos"].append(aviso)
+        return informe | {"puntuacion": 0.0, "apto": None, "general": {}, "anatomia": {}, "encuadre": {}}
+    general = _extraer_json(texto)
+    informe["general"] = general
+
+    try:
+        informe["encuadre"] = medir_encuadre(imagen)
+    except Exception as e:
+        informe["encuadre"] = {}
+        informe["avisos"].append(f"no se pudo medir el encuadre: {e}")
+
+    tipo = str(general.get("tipo", "")).lower()
+    toca_anatomia = revisar_anatomia is True or (revisar_anatomia == "auto" and tipo and tipo != "objeto")
+    anatomia = {}
+    if toca_anatomia:
+        texto_a, aviso_a = _preguntar(imagen, REVISION_ANATOMIA, tokens=800)
+        if aviso_a:
+            informe["avisos"].append(aviso_a)
+        anatomia = _extraer_json(texto_a)
+    informe["anatomia"] = anatomia
+
+    def marcar(clave, motivo):
+        if clave not in informe["defectos"]:
+            informe["defectos"].append(clave)
+        informe["detalle"].append(motivo)
+
+    # --- encuadre y material ---
+    encuadre = informe["encuadre"]
+    # "recortado" solo cuenta si tambien lo ve la medida: la IA lo confunde con las
+    # barras de marca de agua que tocan el borde.
+    if general.get("recortado") and encuadre.get("toca_borde"):
+        marcar("recortado", "el objeto se sale del encuadre")
+    if (general.get("objetos") or 1) > 1:
+        marcar("varios_objetos", f"hay {general.get('objetos')} objetos en la imagen")
+    if general.get("texto_o_marca"):
+        marcar("texto_o_marca", "hay texto o marca de agua")
+    if general.get("partes_finas"):
+        marcar("partes_finas", "tiene partes finas o ramificadas")
+    if general.get("transparente"):
+        marcar("transparente", "es de material transparente")
+    if general.get("fondo_liso") is False:
+        marcar("fondo_sucio", "el fondo no es liso")
+    if general.get("sombras_duras"):
+        marcar("sombras_duras", "tiene sombras duras")
+    if encuadre.get("area", 1) and (encuadre["area"] < 0.12 or encuadre.get("descentrado", 0) > 0.15):
+        marcar("encuadre", f"objeto pequeno o descentrado (area {encuadre.get('area')})")
+
+    # --- anatomia: la lista de defectos manda sobre las banderas ---
+    # En la prueba con dos cabezas las banderas decian false y fue la lista la que lo vio.
+    if anatomia:
+        problemas = [p for p in (anatomia.get("defectos") or []) if str(p).strip()]
+        banderas = [k for k in ("extremidades_de_mas", "partes_fusionadas", "asimetria_rara",
+                                "proporciones_raras", "manos_mal") if anatomia.get(k)]
+        if problemas or banderas:
+            marcar("anatomia", "anatomia: " + "; ".join([str(p) for p in problemas] or banderas))
+
+    informe["puntuacion"] = round(10.0 - sum(PESOS.get(d, 1) for d in informe["defectos"]), 1)
+    informe["apto"] = not informe["defectos"]
+    informe["problemas_ia"] = general.get("problemas") or []
+    informe["que_es"] = general.get("que_es", "")
+    informe["tipo"] = tipo
+    return informe
+
+
+def corregir(prompt, negativo, informe, semilla_actual=0):
+    """Prompt y negativo corregidos segun los defectos. Reglas fijas, sin improvisar."""
+    anadir, negar = [], []
+    for defecto in informe.get("defectos", []):
+        mas, menos = REMEDIOS.get(defecto, ("", ""))
+        if mas and mas.lower() not in prompt.lower():
+            anadir.append(mas)
+        if menos:
+            negar.extend(m.strip() for m in menos.split(",") if m.strip().lower() not in (negativo or "").lower())
+
+    nuevo = prompt.rstrip(" .,")
+    if anadir:
+        nuevo += ", " + ", ".join(anadir)
+    nuevo_negativo = ", ".join(filter(None, [(negativo or "").strip(" ,")] + negar))
+
+    cambios = {"seed": int(semilla_actual) + 1013904223 & 0xFFFFFFFF}   # siempre otra semilla
+    if "anatomia" in informe.get("defectos", []) or "partes_finas" in informe.get("defectos", []):
+        cambios["steps"] = 28   # mas pasos ayudan a resolver manos y detalles finos
+    return nuevo, nuevo_negativo, cambios
+
+
+def resumen(informe):
+    """Texto corto para mostrar en un nodo o en la interfaz."""
+    if informe.get("avisos") and not informe.get("general"):
+        return "AVISO: " + "; ".join(informe["avisos"])
+    lineas = [f"{informe.get('que_es', '?')} ({informe.get('tipo', '?')}) · puntuacion {informe.get('puntuacion')}/10"]
+    if informe.get("defectos"):
+        lineas += [f"  - {d}" for d in informe.get("detalle", [])]
+    else:
+        lineas.append("  sin defectos detectados")
+    encuadre = informe.get("encuadre") or {}
+    if encuadre:
+        lineas.append(f"  encuadre: ocupa {encuadre.get('area')} · toca borde {encuadre.get('toca_borde')}")
+    for aviso in informe.get("avisos", []):
+        lineas.append(f"  AVISO: {aviso}")
+    return "\n".join(lineas)
