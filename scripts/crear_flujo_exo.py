@@ -1,4 +1,4 @@
-"""Genera el flujo 'Exo - imagen a pieza imprimible' y lo guarda en ComfyUI.
+﻿"""Genera el flujo 'Exo - imagen a pieza imprimible' y lo guarda en ComfyUI.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\crear_flujo_exo.py
 
@@ -86,7 +86,12 @@ def construir(grafo, info_nodos):
             valor = grafo[nid]["inputs"].get(campo["nombre"])
             if isinstance(valor, list) and len(valor) == 2 and str(valor[0]) in grafo:
                 origen, ranura = str(valor[0]), int(valor[1])
-                entradas_nodo.append({"name": campo["nombre"], "type": campo["tipo"], "link": siguiente_enlace})
+                entrada = {"name": campo["nombre"], "type": campo["tipo"], "link": siguiente_enlace}
+                if campo["widget"]:
+                    # Campo que normalmente se teclea y aqui llega por cable: el editor
+                    # necesita saber que widget sustituye, o lo dibuja como entrada suelta.
+                    entrada["widget"] = {"name": campo["nombre"]}
+                entradas_nodo.append(entrada)
                 enlaces.append([siguiente_enlace, int(origen), ranura, int(nid), len(entradas_nodo) - 1, campo["tipo"]])
                 enlaces_salida[origen][ranura].append(siguiente_enlace)
                 siguiente_enlace += 1
@@ -137,14 +142,15 @@ def main():
     grafo["202"] = {"class_type": "ExoRevisarGrosor", "inputs": {
         "mesh": ["201", 0], "grosor_min_mm": 1.2, "aviso_pct": 5.0, "muestras": 4000}}
     grafo["203"] = {"class_type": "ExoGuardarImpresion", "inputs": {
-        "mesh": ["202", 0], "nombre": "exo/pieza", "guardar_obj": True}}
+        "mesh": ["202", 0], "nombre": "exo/pieza", "guardar_obj": True, "poner_de_pie": True}}
 
     flujo = construir(grafo, info_nodos)
     DESTINO.parent.mkdir(parents=True, exist_ok=True)
     DESTINO.write_text(json.dumps(flujo, indent=1, ensure_ascii=False), encoding="utf-8")
     print(f"guardado: {DESTINO}")
-    print(f"nodos: {len(flujo['nodes'])} · enlaces: {len(flujo['links'])}")
+    print(f"nodos: {len(flujo['nodes'])} Â· enlaces: {len(flujo['links'])}")
 
 
 if __name__ == "__main__":
     main()
+

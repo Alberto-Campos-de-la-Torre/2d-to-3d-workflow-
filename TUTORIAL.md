@@ -80,7 +80,41 @@ nada intermedio: el generador de imagen entrega la imagen directamente al 3D.
 > tus propias piezas, catalogo, pruebas y muestras. Para un pedido de pago, la imagen
 > tiene que venir del cliente o de FLUX.2 Klein (Apache 2.0).
 
-### Como escribir el prompt
+### Que escriba el prompt tu IA local
+
+El nodo **Prompt con IA (Exo)** convierte una idea corta ("un zorro sentado, figura de
+resina") en un prompt completo con las reglas que necesita la conversion a 3D. Va delante
+del generador de imagen y tarda un par de segundos.
+
+- **modo `3d`**: obliga a objeto entero, centrado, fondo liso, luz pareja, y evita formas
+  imposibles de imprimir (telas al viento, humo, pelo suelto, transparencias).
+- **modo `imagen`**: solo amplia la idea, sin restricciones, para cuando la imagen es el
+  producto final.
+- **semilla**: cambiala para obtener otra redaccion de la misma idea.
+
+Desde la linea de comandos va activado por defecto:
+
+    PY scripts\texto_a_pieza.py "un zorro sentado, figura de resina" --altura 75
+    PY scripts\prompt_ia.py "un buho de ceramica"            # solo ver el prompt
+    PY scripts\prompt_ia.py "cartel retro de cafe" --modo imagen
+
+Con `--sin-ia` se salta la IA y solo anade las indicaciones de encuadre; con `--tal-cual`
+se usa el texto exactamente como lo escribiste.
+
+**Configuracion**: la direccion del servidor va en `config_local.json` (en la raiz, junto
+al .bat), o en la variable de entorno `EXO_IA_URL`. Ese archivo no se publica. Ejemplo:
+
+    {
+      "ia_url": "http://LA-IP-DE-TU-SERVIDOR:8080/v1",
+      "ia_modelo": "",
+      "ia_temperatura": 0.8
+    }
+
+Sirve cualquier servidor con API compatible con OpenAI: llama.cpp, LM Studio, Ollama,
+vLLM. Si `ia_modelo` esta vacio, usa el primero que sirva el servidor. **Si la IA no
+responde, el flujo sigue con la idea tal cual y lo avisa**: no se queda parado.
+
+### Como escribir el prompt a mano
 
 El generador crea imagenes bonitas; nosotros necesitamos imagenes **utiles para 3D**. La
 diferencia esta en cuatro cosas, que el flujo ya anade solas cuando usas el script:

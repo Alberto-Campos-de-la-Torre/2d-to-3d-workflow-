@@ -36,7 +36,8 @@ __pycache__/
 .venv/
 venv/
 
-# Ajustes locales que pueden llevar rutas o datos propios
+# Ajustes locales que pueden llevar rutas, IP o datos propios
+config_local.json
 user/
 settings.json
 extra_model_paths.yaml

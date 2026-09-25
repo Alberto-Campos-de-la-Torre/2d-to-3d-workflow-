@@ -1,0 +1,6 @@
+{
+  "_comentario": "Copia este archivo como config_local.json en la raiz y pon tus datos. config_local.json NO se publica (esta en .gitignore), asi la direccion de tu red se queda en tu equipo.",
+  "ia_url": "http://127.0.0.1:8080/v1",
+  "ia_modelo": "",
+  "ia_temperatura": 0.8
+}

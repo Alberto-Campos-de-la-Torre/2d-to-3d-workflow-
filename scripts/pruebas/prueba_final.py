@@ -1,4 +1,4 @@
-"""Prueba final: las 10 imagenes de prueba por el sistema completo.
+﻿"""Prueba final: las 10 imagenes de prueba por el sistema completo.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\prueba_final.py [carpeta]
 
@@ -33,7 +33,7 @@ def construir(nombre_imagen, prefijo):
     grafo["202"] = {"class_type": "ExoRevisarGrosor", "inputs": {
         "mesh": ["201", 0], "grosor_min_mm": 1.2, "aviso_pct": 5.0, "muestras": 4000}}
     grafo["203"] = {"class_type": "ExoGuardarImpresion", "inputs": {
-        "mesh": ["202", 0], "nombre": f"final/{prefijo}", "guardar_obj": True}}
+        "mesh": ["202", 0], "nombre": f"final/{prefijo}", "guardar_obj": True, "poner_de_pie": True}}
     return grafo
 
 
@@ -71,7 +71,7 @@ def ejecutar(ruta):
     grosor = texto_de(salidas, "202")
     paleta = texto_de(salidas, "200")
 
-    agujeros = numero(solido, r"salida.*?·\s*([\d,]+)\s*agujeros", -1)
+    agujeros = numero(solido, r"salida.*?Â·\s*([\d,]+)\s*agujeros", -1)
     finas = numero(grosor, r"zonas finas\s+([\d.]+)", -1)
     return {
         "imagen": ruta.name,
@@ -91,7 +91,7 @@ def ejecutar(ruta):
 
 def main():
     imagenes = sorted(f for f in ENTRADA.iterdir() if f.suffix.lower() in EXTENSIONES)
-    print(f"{len(imagenes)} imagenes · altura {ALTURA_MM:.0f} mm · guardando en output\\final\n", flush=True)
+    print(f"{len(imagenes)} imagenes Â· altura {ALTURA_MM:.0f} mm Â· guardando en output\\final\n", flush=True)
     resultados = []
     for i, ruta in enumerate(imagenes, 1):
         print(f"[{i}/{len(imagenes)}] {ruta.name} ...", flush=True)
@@ -102,8 +102,8 @@ def main():
             print(f"    ERROR: {dato['error']}", flush=True)
         else:
             veredicto = "IMPRIMIBLE" if dato["cerrada"] and dato["pct_zonas_finas"] <= 5 else "REVISAR"
-            print(f"    {veredicto} · {dato['segundos']} s · {dato['agujeros']} agujeros · "
-                  f"{dato['pct_zonas_finas']}% finas · {dato['peso_g']} g · {dato['colores']} colores", flush=True)
+            print(f"    {veredicto} Â· {dato['segundos']} s Â· {dato['agujeros']} agujeros Â· "
+                  f"{dato['pct_zonas_finas']}% finas Â· {dato['peso_g']} g Â· {dato['colores']} colores", flush=True)
         resultados.append(dato)
         INFORME.write_text(json.dumps(resultados, indent=1, ensure_ascii=False), encoding="utf-8")
 
@@ -114,3 +114,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

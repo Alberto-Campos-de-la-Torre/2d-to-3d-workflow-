@@ -1,4 +1,4 @@
-"""De un prompt a una pieza imprimible, en una sola orden.
+﻿"""De un prompt a una pieza imprimible, en una sola orden.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\texto_a_pieza.py "un gato sentado, figura de resina" [--altura 80] [--semilla 42] [--paleta "#1a1a1a,#f2f2f2"]
 
@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from crear_flujo_texto_a_pieza import grafo_completo
 from generar_3d import peticion
+from prompt_ia import mejorar
 
 AYUDA_PROMPT = (", single complete object, centered, plain neutral background, "
                 "soft even lighting, no text, full object visible")
@@ -25,10 +26,22 @@ def main():
     p.add_argument("--altura", type=float, default=80.0, help="altura final de la pieza en mm")
     p.add_argument("--semilla", type=int, default=42)
     p.add_argument("--paleta", default="", help="colores de tus bobinas: '#1a1a1a,#f2f2f2,...'")
-    p.add_argument("--tal-cual", action="store_true", help="no anadir las indicaciones de encuadre al prompt")
+    p.add_argument("--tal-cual", action="store_true",
+                   help="usa el texto tal cual, sin pasarlo por la IA ni anadir indicaciones")
+    p.add_argument("--sin-ia", action="store_true",
+                   help="no usar la IA local: solo anade las indicaciones de encuadre")
     args = p.parse_args()
 
-    prompt = args.prompt if args.tal_cual else args.prompt + AYUDA_PROMPT
+    # Por defecto la idea corta la amplia la IA local; si no contesta, se sigue igual.
+    if args.tal_cual:
+        prompt = args.prompt
+    elif args.sin_ia:
+        prompt = args.prompt + AYUDA_PROMPT
+    else:
+        prompt, aviso = mejorar(args.prompt, "3d", semilla=args.semilla)
+        if aviso:
+            print(f"AVISO: {aviso}")
+            prompt = args.prompt + AYUDA_PROMPT
     print(f"prompt: {prompt}\n", flush=True)
 
     inicio = time.time()
@@ -60,3 +73,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

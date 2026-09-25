@@ -1,4 +1,4 @@
-"""Genera el flujo 'Exo - texto a pieza (Qwen)': de un prompt a un STL imprimible.
+﻿"""Genera el flujo 'Exo - texto a pieza (Qwen)': de un prompt a un STL imprimible.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\crear_flujo_texto_a_pieza.py
 
@@ -23,9 +23,20 @@ PROMPT = ("Small vinyl-toy style dragon figurine sitting, single complete object
           "plain neutral background, soft even lighting, no text.")
 
 
-def grafo_qwen(prompt, semilla=42, lado=1024, pasos=25):
-    """Texto -> imagen. La salida ["7", 0] es la imagen que alimenta la parte 3D."""
+def grafo_qwen(prompt, semilla=42, lado=1024, pasos=25, idea=None):
+    """Texto -> imagen. La salida ["7", 0] es la imagen que alimenta la parte 3D.
+
+    Con 'idea', el prompt lo escribe la IA local a partir de esa frase corta (nodo 8),
+    y lo que se teclea en 'prompt' se ignora.
+    """
+    escritor = {}
+    if idea is not None:
+        escritor = {"8": {"class_type": "ExoPromptIA", "inputs": {
+            "idea": idea, "modo": "3d", "servidor": "", "modelo": "",
+            "temperatura": 0.8, "semilla": semilla}}}
+        prompt = ["8", 0]
     return {
+        **escritor,
         "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": "qwen-image-2.1-UC-Q8_0.gguf"}},
         "2": {"class_type": "CLIPLoader", "inputs": {
             "clip_name": "qwen3vl_8b_int8_convrot.safetensors", "type": "qwen_image", "device": "default"}},
@@ -61,22 +72,25 @@ def grafo_pieza(origen_imagen, prefijo="3d/texto/pieza", nombre_salida="texto/pi
     grafo["202"] = {"class_type": "ExoRevisarGrosor", "inputs": {
         "mesh": ["201", 0], "grosor_min_mm": 1.2, "aviso_pct": 5.0, "muestras": 4000}}
     grafo["203"] = {"class_type": "ExoGuardarImpresion", "inputs": {
-        "mesh": ["202", 0], "nombre": nombre_salida, "guardar_obj": True}}
+        "mesh": ["202", 0], "nombre": nombre_salida, "guardar_obj": True, "poner_de_pie": True}}
     return grafo
 
 
-def grafo_completo(prompt=PROMPT, semilla=42, altura_mm=80.0, paleta=""):
-    return {**grafo_qwen(prompt, semilla), **grafo_pieza(["7", 0], altura_mm=altura_mm, paleta=paleta)}
+def grafo_completo(prompt=PROMPT, semilla=42, altura_mm=80.0, paleta="", idea=None):
+    return {**grafo_qwen(prompt, semilla, idea=idea),
+            **grafo_pieza(["7", 0], altura_mm=altura_mm, paleta=paleta)}
 
 
 def main():
-    flujo = construir(grafo_completo(), catalogo())
+    # El flujo guardado trae el escritor de prompts delante: se teclea una idea corta.
+    flujo = construir(grafo_completo(idea="un buho estilizado de ceramica"), catalogo())
     flujo["id"] = "exo-texto-a-pieza"
     DESTINO.parent.mkdir(parents=True, exist_ok=True)
     DESTINO.write_text(json.dumps(flujo, indent=1, ensure_ascii=False), encoding="utf-8")
     print(f"guardado: {DESTINO}")
-    print(f"nodos: {len(flujo['nodes'])} · enlaces: {len(flujo['links'])}")
+    print(f"nodos: {len(flujo['nodes'])} Â· enlaces: {len(flujo['links'])}")
 
 
 if __name__ == "__main__":
     main()
+

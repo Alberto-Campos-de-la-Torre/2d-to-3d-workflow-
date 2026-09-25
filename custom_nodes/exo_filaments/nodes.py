@@ -1,4 +1,4 @@
-"""Nodos de Exo filaments: pasar de una malla generada a una pieza imprimible.
+﻿"""Nodos de Exo filaments: pasar de una malla generada a una pieza imprimible.
 
 - Paleta de filamentos: reduce el color del modelo a los filamentos que hay cargados.
 - Informe de impresion: escala a milimetros y calcula volumen, peso y estanqueidad.
@@ -208,6 +208,47 @@ class ExoInformeImpresion(IO.ComfyNode):
         return IO.NodeOutput(salida, informe, float(peso) if fiable else 0.0, ui={"text": (informe,)})
 
 
+class ExoPromptIA(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(
+            node_id="ExoPromptIA",
+            display_name="Prompt con IA (Exo)",
+            category="3d/exo filaments",
+            description=(
+                "Convierte una idea corta en un prompt completo usando tu IA local. En modo '3d' "
+                "obliga a lo que necesita la conversion a modelo: un objeto entero, centrado, fondo "
+                "liso y sin formas imposibles de imprimir. Si el servidor no contesta, devuelve la "
+                "idea tal cual y lo avisa, para no tumbar el flujo."
+            ),
+            inputs=[
+                IO.String.Input("idea", multiline=True, default="un buho estilizado de ceramica",
+                                tooltip="Lo que quieres, en una linea y en el idioma que prefieras."),
+                IO.Combo.Input("modo", options=["3d", "imagen"], default="3d",
+                               tooltip="'3d' anade las reglas para que la pieza salga imprimible; 'imagen' solo amplia la idea."),
+                IO.String.Input("servidor", default="", multiline=False,
+                                tooltip="Vacio = el de config_local.json o la variable EXO_IA_URL."),
+                IO.String.Input("modelo", default="", multiline=False,
+                                tooltip="Vacio = el primero que sirva el servidor."),
+                IO.Float.Input("temperatura", default=0.8, min=0.0, max=2.0, step=0.1),
+                IO.Int.Input("semilla", default=0, min=0, max=0xFFFFFFFF,
+                             control_after_generate=True,
+                             tooltip="Cambiala para obtener otra redaccion de la misma idea."),
+            ],
+            outputs=[IO.String.Output("prompt")],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(cls, idea, modo, servidor, modelo, temperatura, semilla):
+        from .prompt_ia import mejorar
+
+        prompt, aviso = mejorar(idea, modo, servidor or None, modelo or None,
+                                temperatura=temperatura, semilla=semilla or None)
+        texto = f"AVISO: {aviso}\n\n{prompt}" if aviso else prompt
+        return IO.NodeOutput(prompt, ui={"text": (texto,)})
+
+
 def _rasterizar(vertices, caras, resolucion):
     """Marca en una rejilla los voxeles que toca la superficie.
 
@@ -384,10 +425,10 @@ class ExoSolidificar(IO.ComfyNode):
 
         agujeros, no_manifold = _clasificar_aristas(vertices_salida, nuevas_caras)
         informe = (
-            f"entrada    {len(caras):,} caras · {abiertas_antes:,} agujeros\n"
-            f"rejilla    {resolucion}^3 · {ocupados:,} voxeles de superficie\n"
-            f"relleno    grietas cerradas con {usados} voxel(es) · interior {interior:,} voxeles\n"
-            f"salida     {len(nuevas_caras):,} caras · {agujeros:,} agujeros · {no_manifold:,} aristas no-manifold\n"
+            f"entrada    {len(caras):,} caras Â· {abiertas_antes:,} agujeros\n"
+            f"rejilla    {resolucion}^3 Â· {ocupados:,} voxeles de superficie\n"
+            f"relleno    grietas cerradas con {usados} voxel(es) Â· interior {interior:,} voxeles\n"
+            f"salida     {len(nuevas_caras):,} caras Â· {agujeros:,} agujeros Â· {no_manifold:,} aristas no-manifold\n"
             f"resultado  {'solido cerrado' if agujeros == 0 else 'SIGUE ABIERTA: sube cerrar_grietas'}"
         )
         return IO.NodeOutput(salida, informe, ui={"text": (informe,)})
@@ -570,9 +611,10 @@ def _escribir_obj(destino, vertices, caras, color_vert):
 class ExtensionExoFilaments(ComfyExtension):
     @override
     async def get_node_list(self):
-        return [ExoSolidificar, ExoPaletaFilamentos, ExoInformeImpresion,
+        return [ExoPromptIA, ExoSolidificar, ExoPaletaFilamentos, ExoInformeImpresion,
                 ExoRevisarGrosor, ExoGuardarImpresion]
 
 
 async def comfy_entrypoint() -> ExtensionExoFilaments:
     return ExtensionExoFilaments()
+
