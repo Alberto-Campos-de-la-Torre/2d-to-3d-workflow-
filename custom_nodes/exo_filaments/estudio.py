@@ -123,6 +123,24 @@ async def revision(peticion):
     return web.json_response(actual)
 
 
+@rutas.post("/exo/estudio/prompt")
+async def escribir_prompt(peticion):
+    """Convierte una idea corta en un prompt completo con la IA local.
+
+    El modo lo decide la casilla 'pensada para pasar a 3D' del estudio: con ella puesta
+    se imponen las reglas que necesita la conversion a modelo.
+    """
+    from .prompt_ia import mejorar
+
+    datos = await peticion.json()
+    prompt, aviso = mejorar(
+        datos.get("idea", ""),
+        "3d" if datos.get("para3d") else "imagen",
+        semilla=datos.get("semilla") or None,
+    )
+    return web.json_response({"prompt": prompt, "aviso": aviso})
+
+
 @rutas.post("/exo/estudio/a_entrada")
 async def a_entrada(peticion):
     """Copia la imagen a input/ para usarla en el flujo imagen -> 3D."""

@@ -127,6 +127,11 @@
     <div>
       <label for="prompt">Qué quieres ver</label>
       <textarea id="prompt" rows="6" placeholder="Figura de un dragón pequeño sentado, estilo juguete de vinilo, fondo liso…"></textarea>
+      <div class="fila" style="margin-top:6px; align-items:center; gap:10px">
+        <button id="escribir-ia" title="Convierte lo que hay escrito en un prompt completo, con tu IA local">Escribir con IA</button>
+        <button id="deshacer-ia" hidden>Deshacer</button>
+        <small id="ia-estado" style="opacity:.7"></small>
+      </div>
     </div>
     <label class="check"><input type="checkbox" id="transparente"> Fondo transparente (PNG con canal alfa)</label>
     <label class="check"><input type="checkbox" id="para3d"> Pensada para pasar a 3D (objeto entero, centrado, fondo liso)</label>
@@ -312,6 +317,51 @@ function construirFormulario() {
   $("cancelar").addEventListener("click", cancelar);
   $("ref-archivo").addEventListener("change", subirReferencia);
   $("ref-quitar").addEventListener("click", () => ponerReferencia(null));
+  $("escribir-ia").addEventListener("click", escribirConIA);
+  $("deshacer-ia").addEventListener("click", deshacerIA);
+}
+
+// ---------- prompt escrito por la IA local ----------
+let promptAnterior = null;
+
+async function escribirConIA() {
+  const idea = $("prompt").value.trim();
+  if (!idea) { aviso("Escribe primero la idea, aunque sean tres palabras."); $("prompt").focus(); return; }
+
+  const boton = $("escribir-ia");
+  boton.disabled = true;
+  $("ia-estado").textContent = "escribiendo…";
+  try {
+    const r = await fetch("/exo/estudio/prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idea, para3d: $("para3d").checked, semilla: Date.now() % 100000 }),
+    });
+    const datos = await r.json();
+    if (datos.aviso) {
+      // La IA no contesto: se deja lo escrito y se dice por que.
+      aviso(datos.aviso, true);
+      $("ia-estado").textContent = "";
+      return;
+    }
+    promptAnterior = idea;
+    $("prompt").value = datos.prompt;
+    $("deshacer-ia").hidden = false;
+    $("ia-estado").textContent = $("para3d").checked ? "con reglas para 3D" : "modo imagen";
+  } catch (e) {
+    aviso("No se pudo hablar con la IA: " + e.message, true);
+    $("ia-estado").textContent = "";
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+function deshacerIA() {
+  if (promptAnterior === null) return;
+  $("prompt").value = promptAnterior;
+  promptAnterior = null;
+  $("deshacer-ia").hidden = true;
+  $("ia-estado").textContent = "";
 }
 function marcarFormato() {
   for (const b of $("formatos").children) b.classList.toggle("activo", b.textContent === estado.formato);
