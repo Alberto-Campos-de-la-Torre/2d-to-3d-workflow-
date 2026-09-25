@@ -71,6 +71,8 @@ def grafo_pieza(origen_imagen, prefijo="3d/texto/pieza", nombre_salida="texto/pi
         "mesh": ["200", 0], "altura_mm": altura_mm, "material": "PLA", "relleno": 15.0, "pared_mm": 1.2}}
     grafo["202"] = {"class_type": "ExoRevisarGrosor", "inputs": {
         "mesh": ["201", 0], "grosor_min_mm": 1.2, "aviso_pct": 5.0, "muestras": 4000}}
+    grafo["204"] = {"class_type": "ExoRevisarPieza", "inputs": {
+        "mesh": ["202", 0], "descripcion": "", "resolucion_vista": 448}}
     grafo["203"] = {"class_type": "ExoGuardarImpresion", "inputs": {
         "mesh": ["202", 0], "nombre": nombre_salida, "guardar_obj": True, "poner_de_pie": True}}
     return grafo

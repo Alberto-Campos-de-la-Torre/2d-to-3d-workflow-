@@ -1,8 +1,8 @@
 {
  "id": "exo-texto-a-pieza",
  "revision": 0,
- "last_node_id": 203,
- "last_link_id": 75,
+ "last_node_id": 204,
+ "last_link_id": 76,
  "nodes": [
   {
    "id": 8,
@@ -2205,7 +2205,8 @@
      "name": "mesh",
      "type": "MESH",
      "links": [
-      75
+      75,
+      76
      ],
      "slot_index": 0
     },
@@ -2224,11 +2225,11 @@
    ]
   },
   {
-   "id": 203,
-   "type": "ExoGuardarImpresion",
+   "id": 204,
+   "type": "ExoRevisarPieza",
    "pos": [
     8360,
-    210
+    420
    ],
    "size": [
     330,
@@ -2242,6 +2243,61 @@
      "name": "mesh",
      "type": "MESH",
      "link": 75
+    }
+   ],
+   "widgets_values": [
+    "",
+    448
+   ],
+   "properties": {
+    "Node name for S&R": "ExoRevisarPieza"
+   },
+   "outputs": [
+    {
+     "name": "vistas",
+     "type": "IMAGE",
+     "links": [],
+     "slot_index": 0
+    },
+    {
+     "name": "informe",
+     "type": "STRING",
+     "links": [],
+     "slot_index": 1
+    },
+    {
+     "name": "apto",
+     "type": "BOOLEAN",
+     "links": [],
+     "slot_index": 2
+    },
+    {
+     "name": "puntuacion",
+     "type": "FLOAT",
+     "links": [],
+     "slot_index": 3
+    }
+   ]
+  },
+  {
+   "id": 203,
+   "type": "ExoGuardarImpresion",
+   "pos": [
+    8360,
+    210
+   ],
+   "size": [
+    330,
+    120
+   ],
+   "flags": {},
+   "order": 50,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "mesh",
+     "type": "MESH",
+     "link": 76
     }
    ],
    "widgets_values": [
@@ -2857,6 +2913,14 @@
   ],
   [
    75,
+   202,
+   0,
+   204,
+   0,
+   "MESH"
+  ],
+  [
+   76,
    202,
    0,
    203,

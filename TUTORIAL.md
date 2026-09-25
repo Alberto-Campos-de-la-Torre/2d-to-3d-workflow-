@@ -51,6 +51,29 @@ Los nodos muestran su resultado en el propio grafo:
 | **Paleta de filamentos** | Cuantos colores y que porcentaje ocupa cada uno. |
 | **Informe de impresion** | `malla cerrada`, medidas, y el **peso en gramos**: ese es tu presupuesto. |
 | **Revisar grosor de pared** | `zonas finas` por debajo del 5% esta bien. Por encima, la pieza tendra partes fragiles: sube la altura o avisa al cliente. |
+| **Revisar pieza terminada** | La unica revision que mira la PIEZA y no los numeros. Da las cuatro vistas renderizadas, si se parece a lo pedido, y **cuanto llena de su caja**. |
+
+#### El dato del llenado, que es el que mas sorprende
+
+`llena X de su caja` compara el volumen de la pieza con el de la caja que la envuelve.
+Por debajo de **0,10** es una cascara hueca: se imprimira como un papel aunque todos los
+demas controles esten en verde. Ejemplos medidos:
+
+| Pieza | Llenado | Lectura |
+|---|---|---|
+| Zorro | 0,23 | maciza, normal |
+| Camara-tarta | 0,52 | maciza |
+| Conejo | 0,07 | **cascara hueca** |
+| Girasol | 0,05 | **cascara hueca** |
+
+Ni el informe de impresion ni el grosor de pared lo detectaban, y en el render tampoco se
+ve: una cascara y un macizo se dibujan igual. Si sale hueca, sube `cerrar_grietas` en
+*Solidificar malla* o acepta que esa figura no tiene interior (pasa con esculturas caladas).
+
+**Lo que este control NO garantiza**: juzga el parecido, y con piezas abstractas o muy
+estilizadas se equivoca. Con el conejo llego a decir "no reconocible como conejo" cuando
+las orejas y la postura se ven perfectamente. Ademas varia algo entre ejecuciones. Tomalo
+como una alerta para mirar tu, no como un veredicto.
 
 ### 4. Lleva los archivos al laminador
 

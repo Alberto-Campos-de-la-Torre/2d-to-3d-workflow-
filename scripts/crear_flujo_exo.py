@@ -141,6 +141,8 @@ def main():
         "mesh": ["200", 0], "altura_mm": 80.0, "material": "PLA", "relleno": 15.0, "pared_mm": 1.2}}
     grafo["202"] = {"class_type": "ExoRevisarGrosor", "inputs": {
         "mesh": ["201", 0], "grosor_min_mm": 1.2, "aviso_pct": 5.0, "muestras": 4000}}
+    grafo["204"] = {"class_type": "ExoRevisarPieza", "inputs": {
+        "mesh": ["202", 0], "descripcion": "", "resolucion_vista": 448}}
     grafo["203"] = {"class_type": "ExoGuardarImpresion", "inputs": {
         "mesh": ["202", 0], "nombre": "exo/pieza", "guardar_obj": True, "poner_de_pie": True}}
 
@@ -153,4 +155,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

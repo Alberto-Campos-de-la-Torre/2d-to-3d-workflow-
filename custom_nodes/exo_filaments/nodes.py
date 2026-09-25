@@ -253,6 +253,45 @@ class ExoRevisarImagen(IO.ComfyNode):
                              float(informe.get("puntuacion") or 0.0), ui={"text": (texto,)})
 
 
+class ExoRevisarPieza(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(
+            node_id="ExoRevisarPieza",
+            display_name="Revisar pieza terminada (Exo)",
+            category="3d/exo filaments",
+            description=(
+                "Renderiza la pieza desde cuatro angulos y se la ensena a tu IA local: si se parece "
+                "a lo pedido, si le faltan partes, si esta deformada o si no se sostiene. Ademas mide "
+                "que fraccion de su caja ocupa, que es como se detectan las cascaras huecas: eso no "
+                "se ve en un render pero se imprime como un papel."
+            ),
+            inputs=[
+                IO.Mesh.Input("mesh"),
+                IO.String.Input("descripcion", multiline=False, default="",
+                                tooltip="Lo que se pidio, para comparar. Vacio = solo busca defectos."),
+                IO.Int.Input("resolucion_vista", default=448, min=256, max=1024, step=64,
+                             tooltip="Lado de cada una de las cuatro vistas."),
+            ],
+            outputs=[
+                IO.Image.Output("vistas"),
+                IO.String.Output("informe"),
+                IO.Boolean.Output("apto"),
+                IO.Float.Output("puntuacion"),
+            ],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(cls, mesh, descripcion, resolucion_vista):
+        from .revision_pieza import a_imagen_comfy, resumen, revisar_pieza
+
+        informe, hoja = revisar_pieza(mesh, descripcion, resolucion_vista)
+        return IO.NodeOutput(a_imagen_comfy(hoja), json.dumps(informe, ensure_ascii=False),
+                             bool(informe.get("apto")), float(informe.get("puntuacion") or 0.0),
+                             ui={"text": (resumen(informe),)})
+
+
 class ExoCorregirPrompt(IO.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -701,11 +740,12 @@ def _escribir_obj(destino, vertices, caras, color_vert):
 class ExtensionExoFilaments(ComfyExtension):
     @override
     async def get_node_list(self):
-        return [ExoPromptIA, ExoRevisarImagen, ExoCorregirPrompt, ExoSolidificar,
+        return [ExoPromptIA, ExoRevisarImagen, ExoCorregirPrompt, ExoRevisarPieza, ExoSolidificar,
                 ExoPaletaFilamentos, ExoInformeImpresion, ExoRevisarGrosor, ExoGuardarImpresion]
 
 
 async def comfy_entrypoint() -> ExtensionExoFilaments:
     return ExtensionExoFilaments()
+
 
 
