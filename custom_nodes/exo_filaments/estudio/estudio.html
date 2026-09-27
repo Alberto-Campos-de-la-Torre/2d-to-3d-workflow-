@@ -414,7 +414,8 @@ async function escribirConIA() {
     const r = await fetch("/exo/estudio/prompt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idea, para3d: $("para3d").checked, semilla: Date.now() % 100000 }),
+      body: JSON.stringify({ idea, para3d: $("para3d").checked, semilla: Date.now() % 100000,
+                             referencias: referencias().length }),
     });
     const datos = await r.json();
     if (datos.aviso) {
@@ -426,7 +427,9 @@ async function escribirConIA() {
     promptAnterior = idea;
     $("prompt").value = datos.prompt;
     $("deshacer-ia").hidden = false;
-    $("ia-estado").textContent = $("para3d").checked ? "con reglas para 3D" : "modo imagen";
+    const nRefs = referencias().length;
+    $("ia-estado").textContent = ($("para3d").checked ? "con reglas para 3D" : "modo imagen")
+      + (nRefs ? ` · ${nRefs} referencia${nRefs > 1 ? "s" : ""}` : "");
   } catch (e) {
     aviso("No se pudo hablar con la IA: " + e.message, true);
     $("ia-estado").textContent = "";

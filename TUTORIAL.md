@@ -162,6 +162,12 @@ Lo que funciona bien (7 de 8 casos utiles):
 | Los dos objetos juntos | "both objects together side by side" | camara y manzana, fieles las dos |
 | Color concreto de 2 | "the key, but bright yellow like the flower" | llave amarilla |
 
+**El escritor de prompts ya conoce estas reglas.** Si pulsas "Escribir con IA" con
+referencias cargadas, se le indican cuantas hay y redacta en consecuencia: con una,
+describe el cambio ("turn the key into a matte yellow figurine, keeping the same shape");
+con dos, usa la formula que funciona y nombra el atributo. El indicador al lado del boton
+te dice cuantas referencias tuvo en cuenta.
+
 El tamano de salida lo manda la referencia 1, asi que con referencias el selector de
 formato se desactiva. Cada generacion con dos referencias tarda unos 90 s.
 

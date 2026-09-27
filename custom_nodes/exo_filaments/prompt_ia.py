@@ -1,4 +1,4 @@
-﻿"""Convierte una idea corta en un prompt de imagen, usando una IA local.
+"""Convierte una idea corta en un prompt de imagen, usando una IA local.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\prompt_ia.py "un buho de ceramica"
   ...\\python.exe scripts\\prompt_ia.py "cartel retro de cafe" --modo imagen
@@ -39,6 +39,27 @@ SISTEMA_IMAGEN = (
 
 MODOS = {"3d": SISTEMA_3D, "imagen": SISTEMA_IMAGEN}
 
+# Reglas medidas con una bateria de 10 casos sobre Qwen-Image 2.1 (ver
+# scripts/pruebas/probar_dos_referencias.py). Se anaden solo cuando hay referencias
+# cargadas, porque cambian por completo la forma correcta de redactar el prompt.
+REGLAS_UNA_REFERENCIA = (
+    "\n\nHAY 1 IMAGEN DE REFERENCIA. El prompt no describe la escena entera, sino EL CAMBIO "
+    "sobre esa imagen ('remove the background', 'make it matte red', 'turn it into a ceramic "
+    "figurine'). Menciona el objeto para anclarlo, y no describas de nuevo lo que ya se ve."
+)
+REGLAS_DOS_REFERENCIAS = (
+    "\n\nHAY 2 IMAGENES DE REFERENCIA, y se comprobo como responde el generador:\n"
+    "- El OBJETO sale siempre de la referencia 1. Nunca escribas 'the object from the second "
+    "image': el generador lo ignora y usa igualmente el de la primera.\n"
+    "- La referencia 2 solo aporta un atributo: color, patron, material, fondo, o un segundo "
+    "objeto que acompana.\n"
+    "- NOMBRA ese atributo con palabras concretas ('bright yellow', 'matte black', 'colorful "
+    "square pattern'). Escribir 'with the colors of the second image' a secas no hace nada "
+    "cuando esos colores son oscuros o apagados.\n"
+    "Formula que funciona: <objeto de la referencia 1> + <atributo nombrado> + 'like the "
+    "<cosa> in the second image'."
+)
+
 
 def ajustes():
     """config_local.json, pisado por variables de entorno si las hay."""
@@ -61,8 +82,13 @@ def modelo_disponible(url, tiempo=8):
     return (lista[0].get("id") or lista[0].get("name")) if lista else ""
 
 
-def mejorar(idea, modo="3d", servidor=None, modelo=None, temperatura=None, semilla=None, tiempo=120):
-    """Devuelve (prompt, aviso). Si el servidor falla, devuelve la idea tal cual."""
+def mejorar(idea, modo="3d", servidor=None, modelo=None, temperatura=None, semilla=None,
+            tiempo=120, referencias=0):
+    """Devuelve (prompt, aviso). Si el servidor falla, devuelve la idea tal cual.
+
+    'referencias' es cuantas imagenes de referencia hay cargadas (0, 1 o 2): cambia las
+    instrucciones, porque con referencias el prompt describe un cambio y no una escena.
+    """
     cfg = ajustes()
     url = (servidor or cfg["ia_url"]).rstrip("/")
     idea = (idea or "").strip()
@@ -74,9 +100,15 @@ def mejorar(idea, modo="3d", servidor=None, modelo=None, temperatura=None, semil
     except Exception as e:
         return idea, f"no se pudo consultar {url}: {e}"
 
+    sistema = MODOS.get(modo, SISTEMA_3D)
+    if referencias >= 2:
+        sistema += REGLAS_DOS_REFERENCIAS
+    elif referencias == 1:
+        sistema += REGLAS_UNA_REFERENCIA
+
     cuerpo = {
         "model": nombre,
-        "messages": [{"role": "system", "content": MODOS.get(modo, SISTEMA_3D)},
+        "messages": [{"role": "system", "content": sistema},
                      {"role": "user", "content": idea}],
         "max_tokens": 400,
         "temperature": float(cfg["ia_temperatura"] if temperatura is None else temperatura),
@@ -112,9 +144,12 @@ def main():
     p.add_argument("--servidor", default=None)
     p.add_argument("--modelo", default=None)
     p.add_argument("--semilla", type=int, default=None)
+    p.add_argument("--referencias", type=int, default=0, choices=[0, 1, 2],
+                   help="cuantas imagenes de referencia se van a usar")
     args = p.parse_args()
 
-    prompt, aviso = mejorar(args.idea, args.modo, args.servidor, args.modelo, semilla=args.semilla)
+    prompt, aviso = mejorar(args.idea, args.modo, args.servidor, args.modelo,
+                            semilla=args.semilla, referencias=args.referencias)
     if aviso:
         print(f"AVISO: {aviso}")
     print(prompt)
@@ -122,4 +157,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

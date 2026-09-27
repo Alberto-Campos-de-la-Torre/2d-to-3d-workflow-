@@ -363,17 +363,22 @@ class ExoPromptIA(IO.ComfyNode):
                 IO.Int.Input("semilla", default=0, min=0, max=0xFFFFFFFF,
                              control_after_generate=True,
                              tooltip="Cambiala para obtener otra redaccion de la misma idea."),
+                IO.Int.Input("referencias", default=0, min=0, max=2,
+                             tooltip="Cuantas imagenes de referencia se van a usar. Con 1 el prompt "
+                                     "describe el cambio; con 2 aplica las reglas medidas (el objeto "
+                                     "sale de la referencia 1 y el atributo hay que nombrarlo)."),
             ],
             outputs=[IO.String.Output("prompt")],
             is_output_node=True,
         )
 
     @classmethod
-    def execute(cls, idea, modo, servidor, modelo, temperatura, semilla):
+    def execute(cls, idea, modo, servidor, modelo, temperatura, semilla, referencias=0):
         from .prompt_ia import mejorar
 
         prompt, aviso = mejorar(idea, modo, servidor or None, modelo or None,
-                                temperatura=temperatura, semilla=semilla or None)
+                                temperatura=temperatura, semilla=semilla or None,
+                                referencias=int(referencias))
         texto = f"AVISO: {aviso}\n\n{prompt}" if aviso else prompt
         return IO.NodeOutput(prompt, ui={"text": (texto,)})
 

@@ -250,6 +250,8 @@ async def escribir_prompt(peticion):
         datos.get("idea", ""),
         "3d" if datos.get("para3d") else "imagen",
         semilla=datos.get("semilla") or None,
+        # Con referencias cargadas el prompt describe un cambio, no una escena entera.
+        referencias=int(datos.get("referencias") or 0),
     )
     return web.json_response({"prompt": prompt, "aviso": aviso})
 
