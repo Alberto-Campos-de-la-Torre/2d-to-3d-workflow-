@@ -137,6 +137,27 @@ Sirve cualquier servidor con API compatible con OpenAI: llama.cpp, LM Studio, Ol
 vLLM. Si `ia_modelo` esta vacio, usa el primero que sirva el servidor. **Si la IA no
 responde, el flujo sigue con la idea tal cual y lo avisa**: no se queda parado.
 
+### Referencias: una o dos imagenes
+
+El Estudio admite **dos imagenes de referencia**. Lo que cambia es como se escribe el prompt:
+
+| Referencias | Que escribir en el prompt |
+|---|---|
+| Ninguna | Que quieres ver, desde cero. |
+| Una | El **cambio** sobre esa imagen: "quita el fondo", "hazlo en PLA rojo". |
+| Dos | **Que tomar de cada una**: "la figura de la primera con los colores de la segunda". |
+
+El tamano de salida lo manda siempre la referencia 1, asi que con referencias el selector
+de formato se desactiva.
+
+Probado: con una foto de una tarta con forma de camara y una manzana, y el prompt "the
+camera from the first image, painted in the red and green colors of the apple from the
+second image", devolvio la camara identica —plato, letras y todo— pintada de rojo y verde.
+Unos 90 s.
+
+El nodo admite hasta 16 referencias; la interfaz expone dos porque es lo que se usa en el
+taller. Si hicieran falta mas, se anaden huecos sin tocar la logica.
+
 ### Generar hasta que salga bien (revisa y se corrige solo)
 
 El boton **"Generar hasta que salga bien"** genera, **mira la imagen** con tu IA local y, si

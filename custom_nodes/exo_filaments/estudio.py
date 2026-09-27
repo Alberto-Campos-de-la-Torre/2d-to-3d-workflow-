@@ -62,7 +62,9 @@ def _ajustes_del_grafo(grafo):
         elif clase in ("UnetLoaderGGUF", "UNETLoader"):
             ajustes["modelo"] = e.get("unet_name")
         elif clase == "LoadImage":
-            ajustes["imagen_ref"] = e.get("image")
+            # Puede haber varias referencias; se guardan todas en orden.
+            ajustes.setdefault("imagenes_ref", []).append(e.get("image"))
+            ajustes["imagen_ref"] = e.get("image")   # compatibilidad con fichas antiguas
     return ajustes
 
 

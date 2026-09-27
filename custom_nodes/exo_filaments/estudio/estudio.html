@@ -164,13 +164,18 @@
     </div>
 
     <div>
-      <label>Imagen de referencia (modo edición)</label>
+      <label>Imágenes de referencia (modo edición)</label>
       <div class="ref">
-        <img id="ref-mini" alt="" hidden>
-        <input type="file" id="ref-archivo" accept="image/*" style="flex:1; min-width:0;">
-        <button id="ref-quitar" hidden title="Quitar referencia">×</button>
+        <img id="ref-mini-1" alt="" hidden>
+        <input type="file" id="ref-archivo-1" accept="image/*" style="flex:1; min-width:0;">
+        <button id="ref-quitar-1" hidden title="Quitar referencia 1">×</button>
       </div>
-      <p class="nota" id="ref-nota">Opcional. Con referencia, el prompt describe el cambio («quita el fondo», «hazlo en PLA rojo»…) y el tamaño sale de la imagen.</p>
+      <div class="ref" style="margin-top:6px">
+        <img id="ref-mini-2" alt="" hidden>
+        <input type="file" id="ref-archivo-2" accept="image/*" style="flex:1; min-width:0;">
+        <button id="ref-quitar-2" hidden title="Quitar referencia 2">×</button>
+      </div>
+      <p class="nota" id="ref-nota">Opcional. Con una referencia, el prompt describe el cambio («quita el fondo», «hazlo en PLA rojo»…). Con dos, el prompt dice qué tomar de cada una («la figura de la primera con los colores de la segunda»). El tamaño sale de la primera.</p>
     </div>
 
     <details>
@@ -268,7 +273,7 @@ const estado = {
   visibles: [], indice: -1, comparar: [],
   trabajos: new Map(),   // prompt_id -> {inicio, total, hechas}
   inicios: new Map(),    // prompt_id -> instante de execution_start (puede llegar antes que la respuesta de /prompt)
-  refImagen: null,       // nombre en input/ de la referencia subida
+  refImagenes: [null, null],   // nombres en input/ de las referencias (hasta 2)
 };
 
 // ---------- utilidades ----------
@@ -322,8 +327,10 @@ function construirFormulario() {
   $("generar").addEventListener("click", () => generar());
   $("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.ctrlKey) generar(); });
   $("cancelar").addEventListener("click", cancelar);
-  $("ref-archivo").addEventListener("change", subirReferencia);
-  $("ref-quitar").addEventListener("click", () => ponerReferencia(null));
+  for (const i of [1, 2]) {
+    $(`ref-archivo-${i}`).addEventListener("change", () => subirReferencia(i));
+    $(`ref-quitar-${i}`).addEventListener("click", () => ponerReferencia(null, i));
+  }
   $("escribir-ia").addEventListener("click", escribirConIA);
   $("deshacer-ia").addEventListener("click", deshacerIA);
   $("hasta-bien").addEventListener("click", generarHastaQueSalgaBien);
@@ -452,32 +459,43 @@ async function cargarOpciones() {
   if (!$("modelo").options.length) aviso("No hay ningún GGUF de Qwen-Image 2.1 en models/diffusion_models.", true);
 }
 
-async function subirReferencia() {
-  const archivo = $("ref-archivo").files[0];
+async function subirReferencia(hueco = 1) {
+  const archivo = $(`ref-archivo-${hueco}`).files[0];
   if (!archivo) return;
   const datos = new FormData();
   datos.append("image", archivo);
   datos.append("subfolder", "exo_estudio");
   try {
     const r = await json("/upload/image", { method: "POST", body: datos });
-    ponerReferencia(r.subfolder ? `${r.subfolder}/${r.name}` : r.name);
+    ponerReferencia(r.subfolder ? `${r.subfolder}/${r.name}` : r.name, hueco);
   } catch (e) { aviso("No se pudo subir la referencia: " + e.message, true); }
 }
-function ponerReferencia(nombre) {
-  estado.refImagen = nombre;
-  const mini = $("ref-mini");
+
+function ponerReferencia(nombre, hueco = 1) {
+  estado.refImagenes[hueco - 1] = nombre;
+  const mini = $(`ref-mini-${hueco}`);
   if (nombre) {
     const partes = nombre.split("/");
     const fichero = partes.pop();
     mini.src = `/view?filename=${encodeURIComponent(fichero)}&subfolder=${encodeURIComponent(partes.join("/"))}&type=input`;
   } else {
-    $("ref-archivo").value = "";
+    $(`ref-archivo-${hueco}`).value = "";
   }
-  mini.hidden = $("ref-quitar").hidden = !nombre;
-  $("ref-archivo").hidden = !!nombre;
-  document.querySelectorAll(".chips#formatos button, #mp").forEach((el) => (el.disabled = !!nombre));
-  $("tamano").textContent = nombre ? "el de la referencia" : "";
-  if (!nombre) pintarTamano();
+  mini.hidden = $(`ref-quitar-${hueco}`).hidden = !nombre;
+  $(`ref-archivo-${hueco}`).hidden = !!nombre;
+  pintarEstadoReferencias();
+}
+
+function referencias() {
+  return estado.refImagenes.filter(Boolean);
+}
+
+function pintarEstadoReferencias() {
+  // El tamano lo manda la primera referencia, asi que con referencia no se elige formato.
+  const hay = referencias().length;
+  document.querySelectorAll(".chips#formatos button, #mp").forEach((el) => (el.disabled = hay > 0));
+  $("tamano").textContent = hay ? "el de la referencia 1" : "";
+  if (!hay) pintarTamano();
 }
 
 // ---------- generar ----------
@@ -506,10 +524,15 @@ function grafo(semilla) {
     "7": { class_type: "VAEDecode", inputs: { samples: ["6", 0], vae: ["3", 0] } },
     "9": { class_type: "SaveImage", inputs: { images: ["7", 0], filename_prefix: `${CARPETA}/qwen` } },
   };
-  if (estado.refImagen) {
-    g["8"] = { class_type: "LoadImage", inputs: { image: estado.refImagen } };
-    g["4"].inputs["images.image_1"] = ["8", 0];
-    g["6"].inputs.latent_image = ["4", 2];   // el latente al tamano de la referencia
+  const refs = referencias();
+  if (refs.length) {
+    // El nodo admite hasta 16 referencias en images.image_N; aqui se usan las que haya.
+    refs.forEach((nombre, i) => {
+      const id = String(20 + i);
+      g[id] = { class_type: "LoadImage", inputs: { image: nombre } };
+      g["4"].inputs[`images.image_${i + 1}`] = [id, 0];
+    });
+    g["6"].inputs.latent_image = ["4", 2];   // el latente al tamano de la primera referencia
     delete g["5"];
   }
   return g;
@@ -788,7 +811,9 @@ function reusar(img) {
     $("mp").value = [...$("mp").options].reduce((m, o) => (Math.abs(o.value - mp) < Math.abs(m.value - mp) ? o : m)).value;
     marcarFormato(); pintarTamano();
   }
-  ponerReferencia(img.referencia ? img.imagen_ref ?? null : null);
+  const refs = img.referencia ? (img.imagenes_ref ?? [img.imagen_ref].filter(Boolean)) : [];
+  ponerReferencia(refs[0] ?? null, 1);
+  ponerReferencia(refs[1] ?? null, 2);
 }
 
 function construirVisor() {
@@ -807,7 +832,7 @@ function construirVisor() {
   $("editar").addEventListener("click", async () => {
     try {
       const r = await post("/exo/estudio/a_entrada", { archivo: actual().archivo });
-      ponerReferencia(r.entrada);
+      ponerReferencia(r.entrada, estado.refImagenes[0] && !estado.refImagenes[1] ? 2 : 1);
       $("prompt").value = ""; $("transparente").checked = $("para3d").checked = false;
       cerrar(); $("prompt").focus();
       aviso("Referencia puesta. Describe el cambio y genera.");
