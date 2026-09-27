@@ -139,24 +139,35 @@ responde, el flujo sigue con la idea tal cual y lo avisa**: no se queda parado.
 
 ### Referencias: una o dos imagenes
 
-El Estudio admite **dos imagenes de referencia**. Lo que cambia es como se escribe el prompt:
+El Estudio admite **dos imagenes de referencia**. Probado con una bateria de 10 casos, de
+la que salen dos reglas que conviene respetar:
 
-| Referencias | Que escribir en el prompt |
-|---|---|
-| Ninguna | Que quieres ver, desde cero. |
-| Una | El **cambio** sobre esa imagen: "quita el fondo", "hazlo en PLA rojo". |
-| Dos | **Que tomar de cada una**: "la figura de la primera con los colores de la segunda". |
+**Regla 1: el objeto sale siempre de la referencia 1.** No se puede pedir que el sujeto
+venga de la segunda. Con una llave en el hueco 1 y un cubo de Rubik en el 2, pedir "el
+objeto de la SEGUNDA imagen en plateado" devolvio la llave plateada, no el cubo. La
+referencia 2 sirve para aportar color, patron, fondo o un segundo objeto.
 
-El tamano de salida lo manda siempre la referencia 1, asi que con referencias el selector
-de formato se desactiva.
+**Regla 2: nombra el atributo, no la imagen.** "Con los colores de la segunda imagen"
+funciona solo si esos colores son vivos y evidentes; con una camara negra no hizo nada. La
+misma pareja, pidiendo "matte black and dark grey like the camera", dio una manzana negra
+perfecta. Di el color o el patron con palabras.
 
-Probado: con una foto de una tarta con forma de camara y una manzana, y el prompt "the
-camera from the first image, painted in the red and green colors of the apple from the
-second image", devolvio la camara identica —plato, letras y todo— pintada de rojo y verde.
-Unos 90 s.
+Lo que funciona bien (7 de 8 casos utiles):
+
+| Que quieres | Como pedirlo | Resultado medido |
+|---|---|---|
+| Objeto de 1 con color de 2 | "the camera, painted in the red and green colors of the apple" | camara mitad roja mitad verde |
+| Objeto de 1 con patron de 2 | "the key covered with the colorful square pattern of the second image" | llave con cuadros de Rubik |
+| Objeto de 1 sobre fondo de 2 | "the button placed on top of the flower from the second image" | boton en el centro del girasol |
+| Los dos objetos juntos | "both objects together side by side" | camara y manzana, fieles las dos |
+| Color concreto de 2 | "the key, but bright yellow like the flower" | llave amarilla |
+
+El tamano de salida lo manda la referencia 1, asi que con referencias el selector de
+formato se desactiva. Cada generacion con dos referencias tarda unos 90 s.
 
 El nodo admite hasta 16 referencias; la interfaz expone dos porque es lo que se usa en el
-taller. Si hicieran falta mas, se anaden huecos sin tocar la logica.
+taller. La bateria de pruebas esta en `scripts\pruebas\probar_dos_referencias.py`, con
+las hojas comparativas en `pruebas\dos_referencias`.
 
 ### Generar hasta que salga bien (revisa y se corrige solo)
 
