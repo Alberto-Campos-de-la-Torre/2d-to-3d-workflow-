@@ -127,7 +127,10 @@ REMEDIOS = {
                  "deformed hands, mutated anatomy, malformed"),
     "recortado": ("full object visible, nothing cut off, wide framing with margin", "cropped, cut off"),
     "varios_objetos": ("exactly one single object, nothing else in the frame", "multiple objects, group"),
-    "texto_o_marca": ("", "text, watermark, logo, signature, letters"),
+    # Era el unico remedio que iba solo al negativo, y el negativo apenas hace nada a
+    # cfg 1: por eso el texto ilegible de una camiseta no se corregia nunca.
+    "texto_o_marca": ("plain clean surfaces with no writing, no letters and no logos",
+                      "text, watermark, logo, signature, letters"),
     "partes_finas": ("thick solid forms, chunky proportions, no thin parts", "thin fragile parts, wires, hair strands"),
     "transparente": ("opaque matte material, solid surface", "glass, transparent, translucent, reflections"),
     "fondo_sucio": ("plain seamless neutral background", "busy background, scenery, props"),
@@ -554,6 +557,88 @@ def criticar(imagen, revisar_anatomia="auto", referencias=0, para3d=True, ciclos
     informe["referencias"] = referencias
     informe["para3d"] = para3d
     return informe
+
+
+SISTEMA_USUARIO = (
+    "Eres quien reescribe el prompt de un generador de imagenes. Tienes delante la imagen "
+    "que salio, el prompt con el que se hizo, y lo que la persona que la ha mirado dice que "
+    "esta mal. Ella manda: lo que diga es un fallo, es un fallo, aunque a ti te parezca "
+    "bien.\n"
+    "PASO 1: enumera en voz alta, una por una, las cosas que te dice. Para cada una, mira la "
+    "imagen y di si la ves y donde.\n"
+    "PASO 2: para cada una, decide que cambiar: que anadir al prompt, que anadir al prompt "
+    "negativo, o si no tiene arreglo por palabras y hay que cambiar la semilla (es el caso "
+    "de manos, dedos y extremidades: no hay palabra que las coloque, se tira otra vez).\n"
+    "PASO 3: termina con una unica linea que empiece por JSON: y contenga\n"
+    '{"prompt":"<el prompt entero reescrito, en ingles>",'
+    '"negative_prompt":"<el negativo entero, en ingles>",'
+    '"cambiar_semilla":<true/false>,"cambios":"<en espanol, que has cambiado y por que>"}\n'
+    "Reglas al reescribir:\n"
+    "- Conserva la intencion y el asunto del prompt original. No lo reinventes: es su "
+    "encargo, no el tuyo.\n"
+    "- No quites lo que ya lleva el prompt, salvo que contradiga lo que pide la persona.\n"
+    "- Di las cosas con palabras concretas, no con nombres de defectos. 'sin sombras duras' "
+    "no hace nada; 'soft even studio lighting' si.\n"
+    "- EL PROMPT NEGATIVO CASI NO FUNCIONA con este modelo, que va destilado a cfg 1. Se "
+    "comprobo: pidiendo quitar un platano por el negativo, el platano seguia ahi. Asi que "
+    "TODO lo que importe va en el prompt positivo y dicho en afirmativo: en vez de fiarlo "
+    "a un negativo 'text', escribe 'a plain t-shirt with no writing on it'; en vez de "
+    "'extra fingers', escribe 'hands with five clearly separated fingers'. Al negativo "
+    "manda solo una copia de refuerzo, nunca lo unico.\n"
+    "- Si lo que falla es anatomia, manos o extremidades, pon cambiar_semilla en true."
+)
+
+REGLAS_3D_USUARIO = (
+    "\nLa imagen se va a convertir en un modelo 3D imprimible, asi que el prompt debe "
+    "seguir pidiendo un objeto entero, centrado, sobre fondo liso y con luz pareja, y evitar "
+    "partes finas, transparencias y formas ramificadas. No pierdas eso al corregir."
+)
+
+REGLAS_REF_USUARIO = (
+    "\nLa imagen se genero con 2 imagenes de referencia. El objeto sale siempre de la "
+    "referencia 1; la 2 solo presta atributos sin cuerpo (color, patron, material, estilo, "
+    "fondo, expresion). Si lo que se pide es una pose, una accion o una escena, describela "
+    "con palabras y NO menciones la segunda imagen."
+)
+
+
+def corregir_con_usuario(imagen, prompt, negativo, observaciones, informe=None,
+                         referencias=0, para3d=True):
+    """Reescribe el prompt con lo que el usuario dice que falla. Ve la imagen.
+
+    El corrector automatico solo sabe de los defectos que tiene en su tabla. Este recibe lo
+    que la persona ha visto, que es lo que el modelo no supo ver, y lo traduce a cambios de
+    prompt y de negativo. Devuelve (prompt, negativo, cambios, cambiar_semilla, aviso).
+    """
+    observaciones = (observaciones or "").strip()
+    if not observaciones:
+        return prompt, negativo, "", False, "no habia nada que corregir"
+
+    sistema = SISTEMA_USUARIO
+    if para3d:
+        sistema += REGLAS_3D_USUARIO
+    if int(referencias or 0) >= 2:
+        sistema += REGLAS_REF_USUARIO
+
+    partes = [sistema, "", "PROMPT ACTUAL:", prompt or "(vacio)",
+              "", "NEGATIVO ACTUAL:", (negativo or "(vacio)"),
+              "", "LO QUE DICE QUIEN LA HA MIRADO:", observaciones]
+    if informe and informe.get("defectos"):
+        partes += ["", "Lo que ademas habia encontrado la revision automatica (secundario, "
+                   "manda lo de arriba):", "; ".join(informe.get("detalle") or informe["defectos"])]
+
+    texto, aviso = _preguntar(imagen, "\n".join(partes), tokens=1100, temperatura=0.4)
+    if aviso:
+        return prompt, negativo, "", False, aviso
+    datos = _extraer_json(texto)
+    nuevo = str(datos.get("prompt") or "").strip()
+    if not nuevo:
+        return prompt, negativo, "", False, "la IA no devolvio un prompt; se deja el de antes"
+    return (nuevo,
+            str(datos.get("negative_prompt") or negativo or "").strip(),
+            str(datos.get("cambios") or "").strip(),
+            bool(datos.get("cambiar_semilla")),
+            "")
 
 
 def corregir(prompt, negativo, informe, semilla_actual=0, referencias=None, para3d=None):

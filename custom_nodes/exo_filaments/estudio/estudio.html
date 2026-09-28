@@ -242,6 +242,19 @@
     <div><label for="nota">Notas</label><textarea id="nota" rows="3" placeholder="Qué falla, qué sirve, para qué cliente…"></textarea></div>
     <div><label>Prompt</label><div class="prompt" id="visor-prompt"></div></div>
     <dl class="datos" id="visor-datos"></dl>
+    <div style="margin:8px 0">
+      <label for="observaciones">¿Qué le falla a esta imagen?</label>
+      <textarea id="observaciones" rows="3" placeholder="A la niña de la izquierda le sale un brazo que no se conecta a nadie. El texto de la camiseta no se lee."></textarea>
+      <div class="fila" style="margin-top:6px; align-items:center; gap:10px">
+        <button id="corregir-obs" title="La IA mira la imagen y tu comentario, y reescribe el prompt">Corregir el prompt con esto</button>
+        <small id="obs-estado" style="opacity:.7"></small>
+      </div>
+      <p class="nota">Escríbelo con tus palabras, como se lo dirías a alguien. La IA ve la imagen
+      mientras lo lee, así que puedes señalar sitios («la mano de la derecha», «el fondo de arriba»).
+      Lo que no se arregla con palabras —manos, dedos, extremidades— lo manda al prompt negativo y
+      cambia la semilla. Al generar con <b>«hasta que salga bien»</b>, esto se tiene en cuenta en
+      todas las vueltas, no solo en la primera.</p>
+    </div>
     <div class="acciones">
       <button id="reusar" title="Carga estos ajustes en el formulario (R)">Reusar ajustes</button>
       <button id="variar" title="Mismo prompt, otras 4 semillas (V)">4 variantes</button>
@@ -335,6 +348,7 @@ function construirFormulario() {
     $(`ref-quitar-${i}`).addEventListener("click", () => ponerReferencia(null, i));
   }
   $("escribir-ia").addEventListener("click", escribirConIA);
+  $("corregir-obs").addEventListener("click", corregirConObservacion);
   $("deshacer-ia").addEventListener("click", deshacerIA);
   $("hasta-bien").addEventListener("click", generarHastaQueSalgaBien);
 }
@@ -355,6 +369,8 @@ async function generarHastaQueSalgaBien() {
       para3d: $("para3d").checked,
       // Veces que insiste en cada pregunta de anatomia si la imagen sale limpia.
       ciclos: +$("ciclos-bucle").value,
+      // Lo que tú viste mal en una imagen anterior: pesa más que lo que vea el crítico.
+      observaciones: $("observaciones").value.trim(),
     });
     // Se consulta el progreso cada 2 s: cada vuelta son ~25 s de imagen y ~10 s de revisión.
     let estado;
@@ -452,6 +468,47 @@ async function escribirConIA() {
   } catch (e) {
     aviso("No se pudo hablar con la IA: " + e.message, true);
     $("ia-estado").textContent = "";
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+async function corregirConObservacion() {
+  const texto = $("observaciones").value.trim();
+  if (!texto) { aviso("Escribe primero qué le falla.", true); return; }
+  const img = actual();
+  if (!img) { aviso("Abre una imagen primero.", true); return; }
+
+  const boton = $("corregir-obs");
+  boton.disabled = true;
+  $("obs-estado").textContent = "mirando la imagen…";
+  try {
+    const datos = await post("/exo/estudio/observacion", {
+      archivo: img.archivo,
+      // Se corrige el prompt DE ESA imagen, no lo que haya en el formulario: puede que
+      // estes mirando una de hace rato.
+      prompt: img.prompt || $("prompt").value.trim(),
+      negativo: img.negativo || "",
+      observaciones: texto,
+      referencias: (img.imagenes_ref || []).length,
+      para3d: $("para3d").checked,
+    });
+    if (datos.aviso) { aviso(datos.aviso, true); $("obs-estado").textContent = ""; return; }
+    promptAnterior = $("prompt").value;
+    $("prompt").value = datos.prompt;
+    // El negativo es donde acaban los fallos que no se pueden pedir en positivo (dedos de
+    // mas, texto, marcas), asi que hay que aplicarlo tambien.
+    if (datos.negativo) $("negativo").value = datos.negativo;
+    $("deshacer-ia").hidden = false;
+    // La semilla se cambia sola cuando el fallo es de anatomía: no hay palabra que
+    // coloque unos dedos, hay que volver a tirar.
+    if (datos.cambiar_semilla) $("aleatoria").checked = true;
+    $("obs-estado").textContent = datos.cambiar_semilla ? "prompt corregido · semilla nueva"
+                                                        : "prompt corregido";
+    aviso(datos.cambios || "Prompt corregido con tu observación.");
+  } catch (e) {
+    aviso("No se pudo corregir: " + e.message, true);
+    $("obs-estado").textContent = "";
   } finally {
     boton.disabled = false;
   }

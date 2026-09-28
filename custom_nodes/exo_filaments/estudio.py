@@ -158,6 +158,14 @@ async def _generar_y_esperar(grafo, tiempo_max=600):
     raise RuntimeError("se agoto el tiempo esperando a ComfyUI")
 
 
+def _anotar(estado, texto):
+    """Suma una nota al ultimo intento sin pisar la que hubiera."""
+    if not estado.get("historial"):
+        return
+    intento = estado["historial"][-1]
+    intento["nota"] = (intento.get("nota") + " · " + texto) if intento.get("nota") else texto
+
+
 def _rutas_referencias(grafo, nodo_texto):
     """Rutas en input/ de las referencias colgadas del nodo de texto, en orden."""
     entrada = Path(folder_paths.get_input_directory())
@@ -173,11 +181,13 @@ def _rutas_referencias(grafo, nodo_texto):
     return rutas
 
 
-async def _correr_bucle(id_bucle, grafo, intentos, para3d=True, ciclos=2):
+async def _correr_bucle(id_bucle, grafo, intentos, para3d=True, ciclos=2,
+                        observaciones=""):
     """Generar -> criticar -> corregir, hasta que salga limpia o se agoten los intentos."""
     from PIL import Image
 
-    from .critica import corregir, criticar, resumen
+    from .critica import (CONDICIONES_CON_CUERPO, corregir, corregir_con_usuario,
+                          criticar, resumen)
     from .prompt_ia import mejorar
 
     estado = _bucles[id_bucle]
@@ -233,6 +243,22 @@ async def _correr_bucle(id_bucle, grafo, intentos, para3d=True, ciclos=2):
         nuevo, negativo, cambios = corregir(
             prompt_usado, grafo[nodo_texto]["inputs"].get("negative_prompt", ""),
             informe, grafo[nodo_muestreo]["inputs"].get("seed", 0), referencias, para3d)
+        if observaciones:
+            # Lo que vio el usuario manda sobre lo que vio el critico, y se arrastra en
+            # todas las vueltas: si no, la vuelta siguiente deshace lo que el pidio.
+            nuevo_u, negativo_u, cambios_u, _, aviso_u = await asyncio.get_event_loop(
+                ).run_in_executor(None, lambda: corregir_con_usuario(
+                    Image.open(ruta), nuevo, negativo, observaciones, informe,
+                    referencias, para3d))
+            if aviso_u:
+                _anotar(estado, "no se pudo aplicar tu observacion: " + aviso_u)
+            else:
+                nuevo, negativo = nuevo_u, negativo_u
+                _anotar(estado, "con lo que dijiste: " + (cambios_u or "prompt reescrito"))
+                cambios["quitar_referencia_2"] = bool(
+                    referencias >= 2
+                    and any(c in nuevo.lower() for c in CONDICIONES_CON_CUERPO))
+
         grafo[nodo_texto]["inputs"]["prompt"] = nuevo
         grafo[nodo_texto]["inputs"]["negative_prompt"] = negativo
         grafo[nodo_muestreo]["inputs"]["seed"] = cambios["seed"]
@@ -257,7 +283,7 @@ async def _correr_bucle(id_bucle, grafo, intentos, para3d=True, ciclos=2):
                 nota += f" No se pudo reescribir con palabras ({str(e)[:80]})."
             del grafo[nodo_texto]["inputs"]["images.image_2"]
             referencias = 1
-            estado["historial"][-1]["nota"] = nota
+            _anotar(estado, nota)
 
     estado["terminado"] = True
 
@@ -271,9 +297,12 @@ async def bucle(peticion):
                          "error": "", "para3d": bool(datos.get("para3d"))}
     # 'para3d' decide con que criterio se revisa: con el puesto se exige lo que necesita
     # la conversion a pieza; sin el solo se buscan los fallos de cualquier imagen.
+    # 'observaciones' es lo que el usuario ha visto mal en una imagen anterior: se tiene
+    # en cuenta en cada correccion, no solo en la primera.
     asyncio.create_task(_correr_bucle(id_bucle, datos["grafo"], datos.get("intentos", 3),
                                       bool(datos.get("para3d")),
-                                      int(datos.get("ciclos") or 2)))
+                                      int(datos.get("ciclos") or 2),
+                                      str(datos.get("observaciones") or "")))
     return web.json_response({"id": id_bucle})
 
 
@@ -316,6 +345,30 @@ async def escribir_prompt(peticion):
     # dejar la referencia 2 cargada estropea el resultado, asi que se avisa.
     soltar = int(datos.get("referencias") or 0) >= 2 and "second image" not in prompt.lower()
     return web.json_response({"prompt": prompt, "aviso": aviso, "soltar_referencia_2": soltar})
+
+
+@rutas.post("/exo/estudio/observacion")
+async def observacion(peticion):
+    """Reescribe el prompt con lo que el usuario dice que falla en una imagen generada.
+
+    Es el modo de una sola pasada: se mira la imagen, se escribe lo que no cuadra y la IA
+    traduce eso a cambios de prompt y de negativo. En el bucle, lo mismo se arrastra en
+    todas las vueltas.
+    """
+    from .critica import corregir_con_usuario
+
+    datos = await peticion.json()
+    ruta = _salida() / str(datos.get("archivo") or "")
+    if not ruta.exists():
+        return web.json_response({"aviso": "no encuentro esa imagen"}, status=404)
+
+    prompt, negativo, cambios, otra_semilla, aviso = await asyncio.get_event_loop(
+        ).run_in_executor(None, lambda: corregir_con_usuario(
+            Image.open(ruta), str(datos.get("prompt") or ""),
+            str(datos.get("negativo") or ""), str(datos.get("observaciones") or ""),
+            None, int(datos.get("referencias") or 0), bool(datos.get("para3d"))))
+    return web.json_response({"prompt": prompt, "negativo": negativo, "cambios": cambios,
+                              "cambiar_semilla": otra_semilla, "aviso": aviso})
 
 
 @rutas.post("/exo/estudio/a_entrada")

@@ -223,6 +223,39 @@ El nodo admite hasta 16 referencias; la interfaz expone dos porque es lo que se 
 taller. La bateria de pruebas esta en `scripts\pruebas\probar_dos_referencias.py`, con
 las hojas comparativas en `pruebas\dos_referencias`.
 
+### Decirle a la IA que falla (tu ojo manda sobre el suyo)
+
+Debajo de cada imagen, en el visor, hay un cuadro: **"¿Que le falla a esta imagen?"**.
+Escribes con tus palabras lo que has visto mal y pulsas **"Corregir el prompt con esto"**.
+La IA **mira la imagen mientras lee tu comentario**, asi que puedes senalar sitios: "la mano
+de la derecha", "el fondo de arriba", "el brazo de la nina de gris no se conecta a nadie".
+
+Que hace con eso: enumera una por una las cosas que le dices, las busca en la imagen, y
+reescribe el prompt y el negativo. Si lo que falla es anatomia —manos, dedos,
+extremidades— **cambia la semilla**, porque no hay palabra que coloque unos dedos: hay que
+volver a tirar. El prompt corregido aparece en el formulario, con "Deshacer" al lado.
+
+Sirve en los dos modos:
+
+- **Generar una vez**: corriges, miras el prompt, y vuelves a darle a Generar.
+- **Generar hasta que salga bien**: lo que hayas escrito en el cuadro **se arrastra en todas
+  las vueltas**, y pesa mas que lo que encuentre la revision automatica. Sin eso, la vuelta
+  siguiente deshacia lo que pediste. En la tira de intentos se ve, en cada vuelta, que
+  cambio por lo que dijiste tu.
+
+Ejemplo real, de dos vueltas: "el brazo que pasa por encima del hombro de la nina de gris no
+se conecta a ningun cuerpo, y el texto de la camiseta rosa son letras sin sentido". El
+prompt paso a incluir "a plain solid pink t-shirt with no text or graphics" y describir el
+brazo apoyado en el hombro. La segunda imagen salio con la camiseta lisa y el brazo
+conectado.
+
+**Lo importante: pideselo en afirmativo, y deja que ella lo traduzca.** El prompt negativo
+**casi no funciona** con este modelo, que va destilado a cfg 1. Se comprobo pidiendo quitar
+un platano por el negativo: el platano seguia ahi, con cfg 1 y con cfg 2,5. Por eso la IA
+mete las correcciones en el prompt positivo ("a plain t-shirt with no writing on it" en vez
+de un negativo "text") y usa el negativo solo como refuerzo. Si alguna vez te preguntas por
+que poner algo en el negativo no cambio nada, esa es la razon.
+
 ### Generar hasta que salga bien (revisa y se corrige solo)
 
 El boton **"Generar hasta que salga bien"** genera, **mira la imagen** con tu IA local y, si
