@@ -237,6 +237,38 @@ Que busca:
 | Encuadre y material | objeto recortado, varios objetos, fondo sucio, sombras duras, marca de agua, partes finas, vidrio o transparencias |
 | Anatomia (solo en figuras, animales y personajes) | extremidades de mas, partes fusionadas, manos mal resueltas, asimetrias y proporciones imposibles |
 
+**Como mira la anatomia cuando hay mas de una figura.** Preguntar por la imagen entera no
+sirve con dos personas: "cuatro brazos" es lo normal con dos cuerpos y tambien es el
+sintoma de que a uno le sobra uno, y el modelo resuelve la duda siempre a favor de "esta
+bien". Con seis imagenes de dos personas, la version anterior dio **todo correcto en las
+seis**, incluidas dos con fallos claros. Ahora la revision va en tres etapas:
+
+1. **Cuenta las figuras** y las describe por lo que las distingue ("nina camiseta gris",
+   "hombre camisa azul pantalon marino").
+2. **Una pasada por figura**, sobre un recorte ampliado de cada una, mirando solo a esa y
+   siguiendo cada brazo y cada pierna desde la mano o el pie hasta el hombro o la cadera.
+   Ahi salen los miembros que no llegan a ningun cuerpo, que es el fallo tipico.
+3. **Una pasada por la zona de contacto**, donde los cuerpos se tocan, que es donde
+   aparecen las manos de nadie. Da un veredicto de tres niveles —limpio, sospechoso,
+   fallo— y **solo "fallo" puntua**: lo sospechoso se anota como "a revisar a ojo". Sin ese
+   nivel intermedio llamaba fallo a un apreton de manos bien hecho, que es solo dos manos
+   tapandose.
+
+El selector **"miradas"** al lado de los intentos es cuantas veces insiste en cada pregunta
+cuando la imagen sale limpia. El modelo es inconstante: el mismo brazo mal conectado lo vio
+en una pasada y no en la siguiente. Se para en cuanto encuentra algo, asi que insistir solo
+cuesta tiempo en las imagenes que estan bien. Con dos figuras y 2 miradas, revisar tarda
+unos 55 s; con una figura, unos 12 s.
+
+**Lo que da de si, medido.** Sobre esas seis imagenes, con dos fallos reales comprobados a
+ojo: la version anterior encontro **0 de 2**; esta encuentra **1 o 2 de 2** segun la
+ejecucion, y de vez en cuando marca como defecto unas manos borrosas que no lo son. Hay
+ruido real entre ejecuciones: el mismo codigo dio 5 de 6 y 4 de 6 en dos pasadas seguidas.
+Se ha dejado inclinado a marcar de mas: corregir de mas cuesta una generacion, y corregir
+de menos cuesta una impresion. Un fallo pequeno —una mano deforme que ocupa 60 pixeles en
+una foto de dos cuerpos enteros— se le sigue escapando la mitad de las veces. **La revision
+final sigue siendo tuya.**
+
 Como corrige: anade instrucciones al prompt segun el defecto, refuerza el prompt negativo y
 **cambia la semilla** (lo que mas arregla los fallos de anatomia). Con partes finas o manos
 sube los pasos de 20 a 28. El `cfg` no lo toca: este modelo va destilado a 1,0.

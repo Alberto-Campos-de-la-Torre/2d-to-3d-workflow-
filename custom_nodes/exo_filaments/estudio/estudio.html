@@ -137,6 +137,8 @@
       <button id="hasta-bien" title="Genera, revisa la imagen y corrige el prompt hasta que salga sin defectos">Generar hasta que salga bien</button>
       <label for="intentos-bucle" style="opacity:.8">intentos</label>
       <select id="intentos-bucle" style="width:64px"><option>2</option><option selected>3</option><option>4</option></select>
+      <label for="ciclos-bucle" style="opacity:.8" title="Veces que insiste en cada pregunta de anatomia cuando la imagen sale limpia">miradas</label>
+      <select id="ciclos-bucle" style="width:64px"><option>1</option><option selected>2</option><option>3</option></select>
     </div>
     <div id="tira-intentos" hidden style="display:flex; flex-direction:column; gap:6px; margin:4px 0 8px"></div>
 
@@ -351,6 +353,8 @@ async function generarHastaQueSalgaBien() {
       intentos: +$("intentos-bucle").value,
       // Decide con que criterio se revisa: con 3D se exige objeto entero, macizo y opaco.
       para3d: $("para3d").checked,
+      // Veces que insiste en cada pregunta de anatomia si la imagen sale limpia.
+      ciclos: +$("ciclos-bucle").value,
     });
     // Se consulta el progreso cada 2 s: cada vuelta son ~25 s de imagen y ~10 s de revisión.
     let estado;

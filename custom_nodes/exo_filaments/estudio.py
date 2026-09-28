@@ -173,7 +173,7 @@ def _rutas_referencias(grafo, nodo_texto):
     return rutas
 
 
-async def _correr_bucle(id_bucle, grafo, intentos, para3d=True):
+async def _correr_bucle(id_bucle, grafo, intentos, para3d=True, ciclos=2):
     """Generar -> criticar -> corregir, hasta que salga limpia o se agoten los intentos."""
     from PIL import Image
 
@@ -202,7 +202,7 @@ async def _correr_bucle(id_bucle, grafo, intentos, para3d=True):
             ruta = _salida() / archivo
             informe = await asyncio.get_event_loop().run_in_executor(
                 None, lambda: criticar(Image.open(ruta), referencias=referencias,
-                                       para3d=para3d))
+                                       para3d=para3d, ciclos=ciclos))
         except Exception as e:
             estado.update(terminado=True, error=str(e)[:300])
             return
@@ -272,7 +272,8 @@ async def bucle(peticion):
     # 'para3d' decide con que criterio se revisa: con el puesto se exige lo que necesita
     # la conversion a pieza; sin el solo se buscan los fallos de cualquier imagen.
     asyncio.create_task(_correr_bucle(id_bucle, datos["grafo"], datos.get("intentos", 3),
-                                      bool(datos.get("para3d"))))
+                                      bool(datos.get("para3d")),
+                                      int(datos.get("ciclos") or 2)))
     return web.json_response({"id": id_bucle})
 
 

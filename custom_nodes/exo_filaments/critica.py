@@ -36,15 +36,74 @@ REVISION_GENERAL = (
     '"problemas":["<breve>"]}'
 )
 
+# Una sola pregunta para toda la imagen no sirve cuando hay dos personas: "cuatro brazos"
+# es lo normal con dos cuerpos y tambien es el sintoma de que a uno le sobra uno, y el
+# modelo resuelve la duda siempre a favor de "esta bien". Por eso la revision va por
+# sujeto, sobre un recorte ampliado de cada uno, y con una pasada aparte para la zona
+# donde los cuerpos se tocan, que es donde salen los brazos que no son de nadie.
+REVISION_SUJETOS = (
+    "Cuenta las figuras con cuerpo que hay en la imagen (personas, animales o personajes; "
+    "no cuentes objetos).\n"
+    "PASO 1: di cuantas hay y describelas de izquierda a derecha, una por linea, por lo que "
+    "las distingue (ropa, color de pelo, tamano).\n"
+    "PASO 2: termina con una unica linea que empiece por JSON: y contenga\n"
+    '{"cuantas":<numero>,"figuras":[{"donde":"<izquierda|centro|derecha>",'
+    '"quien":"<3 o 4 palabras que la distingan>"}]}'
+)
+
 REVISION_ANATOMIA = (
-    "Revisas figuras que se van a imprimir en 3D.\n"
-    "PASO 1: describe la figura parte por parte. Cuantas cabezas, brazos, piernas, manos, "
-    "dedos por mano, alas y colas ves, y donde esta cada una. Cuenta en voz alta.\n"
+    "Revisas una figura buscando errores de anatomia.\n"
+    "PASO 1: describela parte por parte. Cuantas cabezas, brazos, piernas, manos, dedos por "
+    "mano, alas y colas ves, y donde esta cada una. Cuenta en voz alta.\n"
     "PASO 2: termina con una unica linea que empiece por JSON: y contenga\n"
     '{"extremidades_de_mas":<true/false>,"partes_fusionadas":<true/false>,'
     '"asimetria_rara":<true/false>,"proporciones_raras":<true/false>,"manos_mal":<true/false>,'
     '"defectos":["<donde y que, en pocas palabras>"]}\n'
     "Cuenta solo lo que VES con claridad. No inventes defectos."
+)
+
+# Por sujeto. Lo que mas resultado da es obligar a SEGUIR cada brazo desde la mano hasta el
+# hombro: el fallo tipico en una escena de dos personas es un brazo que aparece apoyado
+# sobre el otro cuerpo sin nada que lo conecte, y preguntando "cuantos brazos hay" no sale.
+REVISION_UN_SUJETO = (
+    "En esta imagen hay varias figuras. Fijate SOLO en esta: {quien} ({donde}). Ignora por "
+    "completo a las demas; lo que sea de otra figura no es un defecto de esta.\n"
+    "PASO 1, cuenta en voz alta y SOLO de esa figura: cabezas, brazos, manos, dedos de cada "
+    "mano que se vea entera, piernas y pies.\n"
+    "PASO 2, sigue cada brazo y cada pierna desde la mano o el pie hasta el hombro o la "
+    "cadera, y di en voz alta si puedes recorrerlo entero o si se pierde, se corta, sale de "
+    "un sitio imposible o no se ve de quien es.\n"
+    "PASO 3, mira las manos de cerca: cuantos dedos tiene cada una, si hay dedos pegados, "
+    "de mas, de menos, o torcidos hacia donde no deben.\n"
+    "PASO 4: termina con una unica linea que empiece por JSON: y contenga\n"
+    '{"brazos":<numero>,"manos":<numero>,"piernas":<numero>,'
+    '"extremidades_de_mas":<true/false>,"partes_fusionadas":<true/false>,'
+    '"miembro_sin_conectar":<true si algun brazo o pierna no llega a un cuerpo>,'
+    '"asimetria_rara":<true/false>,"proporciones_raras":<true/false>,"manos_mal":<true/false>,'
+    '"defectos":["<donde y que, en pocas palabras>"]}\n'
+    "Cuenta solo lo que VES con claridad. Si una parte queda tapada por otra figura o por "
+    "el borde, NO la pongas en la lista de defectos: una parte tapada no es un fallo, y la "
+    "lista es solo para fallos reales. Si no encuentras ninguno, deja la lista vacia."
+)
+
+# La zona donde los cuerpos se tocan o se solapan.
+REVISION_CONTACTO = (
+    "Este es un recorte ampliado de la zona donde dos figuras se tocan o se solapan.\n"
+    "REGLA: que dos manos se tapen entre si al darse la mano, agarrarse o abrazarse es "
+    "NORMAL. Que una parte quede escondida detras de otra tambien. Eso no es un fallo.\n"
+    "PASO 1: enumera en voz alta cada mano, brazo y pierna que ves, y di de quien es "
+    "siguiendolo hasta el cuerpo del que sale.\n"
+    "PASO 2: di cuales de esas partes se explican bien y cuales no.\n"
+    "PASO 3: da UN veredicto de la zona, con una de estas tres palabras:\n"
+    "  limpio     = todo lo que ves se explica por partes normales que se tapan.\n"
+    "  sospechoso = algo no te cuadra, pero podria ser que este tapado.\n"
+    "  fallo      = ves CON CLARIDAD una de estas cosas: una mano con dedos de mas o de "
+    "menos, dedos fundidos en una masa sin separacion, dedos naciendo de la muneca o del "
+    "dorso, un brazo o una pierna que no llega a ningun cuerpo, una mano sin brazo, o dos "
+    "cuerpos fundidos en uno.\n"
+    "PASO 4: termina con una unica linea que empiece por JSON: y contenga\n"
+    '{"veredicto":"limpio|sospechoso|fallo","que_pasa":"<donde y que, en pocas palabras>"}\n'
+    "En la duda, 'sospechoso'. Reserva 'fallo' para lo que ves sin lugar a dudas."
 )
 
 # Defectos que solo lo son si la imagen se va a convertir en 3D. En una imagen normal
@@ -78,15 +137,29 @@ REMEDIOS = {
 
 
 def _extraer_json(texto):
-    """Coge el ultimo bloque {...} del texto: el modelo suele envolverlo en prosa."""
+    """Coge el ultimo bloque {...} del texto: el modelo suele envolverlo en prosa.
+
+    Se emparejan las llaves a mano en vez de con una expresion regular: con {"a":[{"b":1}]}
+    una expresion no codiciosa corta en la primera llave de cierre y devuelve basura, que
+    es como la revision por sujeto se quedaba sin leer y caia al camino de una sola pasada.
+    """
     if not texto:
         return {}
-    bloques = re.findall(r"\{.*?\}", texto, re.S)
+    bloques, pila = [], []
+    for i, c in enumerate(texto):
+        if c == "{":
+            pila.append(i)
+        elif c == "}" and pila:
+            inicio = pila.pop()
+            if not pila:
+                bloques.append(texto[inicio:i + 1])
     for bloque in reversed(bloques):
         try:
-            return json.loads(bloque)
+            datos = json.loads(bloque)
         except json.JSONDecodeError:
             continue
+        if isinstance(datos, dict):
+            return datos
     return {}
 
 
@@ -185,12 +258,214 @@ def medir_encuadre(imagen):
     }
 
 
-def criticar(imagen, revisar_anatomia="auto", referencias=0, para3d=True):
+# El modelo cuela en la lista cosas que el mismo aclara que no son fallos ("mano tapada
+# por la otra figura", "no es defecto propio"). Se descartan: si se cuentan, el bucle se
+# pone a corregir una oclusion, que no tiene arreglo por prompt.
+NO_ES_DEFECTO = ("no es defecto", "no es un defecto", "no es un fallo", "sin defecto",
+                 "tapad", "ocult", "cubiert", "no se ve por", "fuera de encuadre",
+                 "no visible", "correcto", "normal para")
+
+
+def _es_defecto(texto):
+    bajo = str(texto).strip().lower()
+    if not bajo:
+        return False
+    return not any(marca in bajo for marca in NO_ES_DEFECTO)
+
+
+# Cuentas: entre pasadas se queda la mas alta, no la primera.
+CUENTAS_ANATOMIA = ("manos_con_dedos_raros", "brazos_sin_dueno")
+
+BANDERAS_ANATOMIA = ("extremidades_de_mas", "partes_fusionadas", "asimetria_rara",
+                     "proporciones_raras", "manos_mal", "miembro_sin_conectar",
+                     "miembro_sin_dueno", "cuerpos_fundidos", "mano_suelta")
+
+
+def _insistir(imagen, pregunta, tokens, ciclos, avisos):
+    """Repite la pregunta hasta 'ciclos' veces y devuelve la union de lo encontrado.
+
+    El modelo no es ciego, es inconstante: en el brazo mal conectado de dos ninas acerto en
+    una pasada suelta y no dijo nada en la siguiente, con la misma imagen. Como lo que se
+    quiere evitar son los fallos que se escapan, se pregunta otra vez cuando una pasada sale
+    limpia, subiendo la temperatura para que no repita la misma lectura; en cuanto una
+    encuentra algo se para, asi que una imagen con defectos no cuesta mas que antes.
+    """
+    union, visto = {}, set()
+    for intento in range(max(1, int(ciclos))):
+        texto, aviso = _preguntar(imagen, pregunta, tokens=tokens,
+                                  temperatura=0.2 + 0.3 * intento)
+        if aviso:
+            avisos.append(aviso)
+            continue
+        datos = _extraer_json(texto)
+        for clave, valor in datos.items():
+            if clave == "defectos":
+                continue
+            if clave in BANDERAS_ANATOMIA:
+                union[clave] = bool(union.get(clave)) or bool(valor)
+            elif clave == "veredicto":
+                orden = {"limpio": 0, "sospechoso": 1, "fallo": 2}
+                actual = orden.get(str(union.get(clave, "limpio")).lower(), 0)
+                if orden.get(str(valor).lower(), 0) >= actual:
+                    union[clave] = valor
+                    union["que_pasa"] = None   # se rellena abajo con el de esta pasada
+            elif clave == "que_pasa":
+                if union.get("que_pasa") is None or "que_pasa" not in union:
+                    union["que_pasa"] = valor
+            else:
+                union.setdefault(clave, valor)
+        for d in (datos.get("defectos") or []):
+            d = str(d).strip()
+            if _es_defecto(d) and d.lower() not in visto:
+                visto.add(d.lower())
+                union.setdefault("defectos", []).append(d)
+        if (union.get("defectos")
+                or str(union.get("veredicto", "")).lower().startswith("fallo")
+                or any(union.get(b) for b in BANDERAS_ANATOMIA)):
+            break
+    union.setdefault("defectos", [])
+    union["ciclos"] = intento + 1
+    return union
+
+
+def _ampliar(imagen, caja, lado=1152):
+    """Recorta y agranda, porque una mano en una foto de dos cuerpos enteros son 40 pixeles."""
+    trozo = imagen.crop(caja)
+    if trozo.width < 8 or trozo.height < 8:
+        return imagen
+    escala = lado / max(trozo.width, trozo.height)
+    if escala > 1:
+        from PIL import Image as _Image
+        trozo = trozo.resize((int(trozo.width * escala), int(trozo.height * escala)),
+                             _Image.LANCZOS)
+    return trozo
+
+
+def _columna(imagen, i, n, margen=0.22):
+    """Caja de la figura i de n, contando de izquierda a derecha, con margen de sobra.
+
+    Sin detector no hay cajas de verdad: se reparte el ancho y se solapa bastante, que es
+    suficiente cuando las figuras estan una al lado de otra, que es el caso que falla. La
+    pregunta ademas nombra a quien hay que mirar, asi que si en el recorte entra media
+    figura vecina no se confunde.
+    """
+    ancho, alto = imagen.size
+    paso = ancho / max(n, 1)
+    izq = max(0, int((i * paso) - paso * margen))
+    der = min(ancho, int(((i + 1) * paso) + paso * margen))
+    return (izq, 0, der, alto)
+
+
+def _bandas_contacto(imagen, n):
+    """Dos recortes de la zona donde se tocan los cuerpos: hombros y cintura.
+
+    Mirar la franja entera de una vez deja las manos en 100 pixeles y se le escapan. En dos
+    mitades cada mano sale al doble de tamano, que es la diferencia entre ver unos dedos
+    fundidos y no verlos.
+    """
+    ancho, alto = imagen.size
+    if n == 2:
+        izq, der = int(ancho * 0.20), int(ancho * 0.80)
+    else:
+        izq, der = 0, ancho
+    # Se probo partirla en dos mitades para que las manos salieran mas grandes y salio
+    # peor: aparecio una falsa alarma nueva (dos cuerpos abrazados leidos como fundidos) y
+    # el fallo pequeno que se buscaba siguio sin verse. Se queda la franja entera.
+    return [("zona de contacto", (izq, int(alto * 0.05), der, int(alto * 0.75)))]
+
+
+def _revisar_contacto(imagen, cuantas, ciclos, avisos):
+    """Veredicto de la zona de contacto, mirando cada mitad y quedandose con el peor."""
+    orden = {"limpio": 0, "sospechoso": 1, "fallo": 2}
+    peor = {"veredicto": "limpio", "que_pasa": "", "donde": ""}
+    for donde, caja in _bandas_contacto(imagen, cuantas):
+        zona = _insistir(_ampliar(imagen, caja), REVISION_CONTACTO, 700, ciclos, avisos)
+        nivel = orden.get(str(zona.get("veredicto", "")).lower(), 0)
+        if nivel > orden.get(peor["veredicto"], 0):
+            peor = {"veredicto": str(zona.get("veredicto")).lower(),
+                    "que_pasa": str(zona.get("que_pasa") or ""), "donde": donde}
+        if nivel >= 2:
+            break
+    return peor
+
+
+def _revisar_anatomia(imagen, informe, ciclos=2):
+    """Anatomia por sujeto. Devuelve un unico dict con la union de lo encontrado.
+
+    Con una sola figura se pregunta una vez, como siempre. Con dos o mas se pregunta por
+    cada una sobre su recorte ampliado, y una vez mas sobre la zona de contacto. Cualquier
+    pasada que encuentre algo cuenta: lo que se buscaba arreglar son los fallos que se
+    escapan, no los que se inventan.
+    """
+    texto, aviso = _preguntar(imagen, REVISION_SUJETOS, tokens=400)
+    if aviso:
+        informe["avisos"].append(aviso)
+    reparto = _extraer_json(texto)
+    figuras = [f for f in (reparto.get("figuras") or []) if isinstance(f, dict)]
+    cuantas = int(reparto.get("cuantas") or len(figuras) or 1)
+    informe["figuras"] = figuras
+
+    if cuantas < 2:
+        return _insistir(imagen, REVISION_ANATOMIA, 800, ciclos, informe["avisos"])
+
+    # Si el reparto no trajo descripciones utiles se inventan por posicion, que es lo unico
+    # que hace falta para dirigir la mirada.
+    if len(figuras) != cuantas:
+        sitios = ["la de la izquierda", "la del centro", "la de la derecha"]
+        figuras = [{"donde": sitios[min(i, 2)], "quien": "la figura %d" % (i + 1)}
+                   for i in range(cuantas)]
+
+    union = {"extremidades_de_mas": False, "partes_fusionadas": False, "asimetria_rara": False,
+             "proporciones_raras": False, "manos_mal": False, "defectos": [], "por_sujeto": []}
+    for i, figura in enumerate(figuras[:4]):
+        recorte = _ampliar(imagen, _columna(imagen, i, cuantas))
+        # Reemplazo a mano, no .format: la plantilla lleva dentro el JSON de respuesta y
+        # sus llaves harian saltar al formateador.
+        pregunta = (REVISION_UN_SUJETO
+                    .replace("{quien}", figura.get("quien") or "la figura %d" % (i + 1))
+                    .replace("{donde}", figura.get("donde") or "sin precisar"))
+        parte = _insistir(recorte, pregunta, 900, ciclos, informe["avisos"])
+        union["por_sujeto"].append({"quien": figura.get("quien"), **parte})
+        for bandera in ("extremidades_de_mas", "partes_fusionadas", "asimetria_rara",
+                        "proporciones_raras", "manos_mal"):
+            union[bandera] = union[bandera] or bool(parte.get(bandera))
+        if parte.get("miembro_sin_conectar"):
+            union["partes_fusionadas"] = True
+        etiqueta = figura.get("quien") or ("figura %d" % (i + 1))
+        for d in (parte.get("defectos") or []):
+            if _es_defecto(d):
+                union["defectos"].append("%s: %s" % (etiqueta, d))
+
+    zona = _revisar_contacto(imagen, cuantas, ciclos, informe["avisos"])
+    union["contacto"] = zona
+    # El veredicto sale de las cuentas, no de la prosa: preguntado en abierto, el modelo
+    # llamaba "dedos fusionados" a un apreton de manos bien hecho, que es solo dos manos
+    # tapandose. Con las cuentas delante, eso deja de ser un defecto.
+    # Tres niveles en vez de si/no. Preguntado en abierto, el modelo llamaba fallo a un
+    # apreton de manos normal; obligado a elegir entre tres, un apreton sale 'limpio' y una
+    # mano deforme sale 'fallo'. Lo de en medio se anota pero no puntua, que es justo lo que
+    # no se sabe decidir mirando una foto de dos cuerpos enteros.
+    veredicto = str(zona.get("veredicto", "")).strip().lower()
+    que_pasa = str(zona.get("que_pasa") or "").strip()
+    if veredicto.startswith("fallo"):
+        union["partes_fusionadas"] = True
+        union["defectos"].append("entre las figuras (%s): %s" % (
+            zona.get("donde") or "zona de contacto", que_pasa or "anatomia mal resuelta"))
+    elif veredicto.startswith("sospech") and que_pasa:
+        union["dudas"] = union.get("dudas", []) + ["entre las figuras: %s" % que_pasa]
+    return union
+
+
+def criticar(imagen, revisar_anatomia="auto", referencias=0, para3d=True, ciclos=2):
     """Informe completo de una imagen PIL. Devuelve un dict con defectos y puntuacion.
 
     'referencias' son las imagenes de referencia que se usaron al generar. Con dos, tener
     varios objetos en la imagen puede ser lo pedido ("las dos cosas juntas"), asi que deja
     de contar como defecto: si no, el bucle lo "corregiria" borrando el segundo objeto.
+
+    'ciclos' es cuantas veces se insiste en cada pregunta de anatomia cuando la primera
+    sale limpia. El modelo es inconstante y se le escapan fallos que ve perfectamente en
+    otra pasada; en cuanto una encuentra algo se para.
 
     'para3d' dice si la imagen se va a convertir en pieza. Con el puesto se exige lo que
     necesita la conversion (un objeto, macizo, opaco, sobre fondo liso); sin el solo se
@@ -216,11 +491,10 @@ def criticar(imagen, revisar_anatomia="auto", referencias=0, para3d=True):
     toca_anatomia = revisar_anatomia is True or (revisar_anatomia == "auto" and tipo and tipo != "objeto")
     anatomia = {}
     if toca_anatomia:
-        texto_a, aviso_a = _preguntar(imagen, REVISION_ANATOMIA, tokens=800)
-        if aviso_a:
-            informe["avisos"].append(aviso_a)
-        anatomia = _extraer_json(texto_a)
+        anatomia = _revisar_anatomia(imagen, informe, ciclos)
     informe["anatomia"] = anatomia
+    for duda in (anatomia.get("dudas") or []):
+        informe["notas"] = informe.get("notas", []) + ["a revisar a ojo: " + duda]
 
     def marcar(clave, motivo):
         if not para3d and clave in SOLO_3D:

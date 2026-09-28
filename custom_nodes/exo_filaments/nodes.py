@@ -236,6 +236,12 @@ class ExoRevisarImagen(IO.ComfyNode):
                 IO.Int.Input("referencias", default=0, min=0, max=2,
                              tooltip="Referencias que se usaron al generar. Con 2, tener varios objetos "
                                      "deja de contar como defecto: puede ser justo lo que se pidio."),
+                IO.Int.Input("ciclos", default=2, min=1, max=4,
+                             tooltip="Cuantas veces insistir en cada pregunta de anatomia cuando la "
+                                     "primera sale limpia. El modelo es inconstante: hay fallos que "
+                                     "ve en una pasada y no en la siguiente. Se para en cuanto "
+                                     "encuentra algo, asi que solo cuesta tiempo en las imagenes "
+                                     "que estan bien."),
                 IO.Boolean.Input("para3d", default=True,
                                  tooltip="Puesto, exige lo que necesita la conversion a pieza: un objeto "
                                          "entero, macizo, opaco y sobre fondo liso. Quitado, solo busca "
@@ -251,11 +257,11 @@ class ExoRevisarImagen(IO.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, revisar_anatomia, referencias=0, para3d=True):
+    def execute(cls, image, revisar_anatomia, referencias=0, para3d=True, ciclos=2):
         from .critica import criticar, resumen
 
         modo = {"auto": "auto", "siempre": True, "nunca": False}[revisar_anatomia]
-        informe = criticar(_a_pil(image), modo, int(referencias), bool(para3d))
+        informe = criticar(_a_pil(image), modo, int(referencias), bool(para3d), int(ciclos))
         texto = resumen(informe)
         return IO.NodeOutput(json.dumps(informe, ensure_ascii=False), bool(informe.get("apto")),
                              float(informe.get("puntuacion") or 0.0), ui={"text": (texto,)})
