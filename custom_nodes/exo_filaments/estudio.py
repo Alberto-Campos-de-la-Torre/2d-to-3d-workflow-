@@ -158,11 +158,27 @@ async def _generar_y_esperar(grafo, tiempo_max=600):
     raise RuntimeError("se agoto el tiempo esperando a ComfyUI")
 
 
+def _rutas_referencias(grafo, nodo_texto):
+    """Rutas en input/ de las referencias colgadas del nodo de texto, en orden."""
+    entrada = Path(folder_paths.get_input_directory())
+    rutas = []
+    for clave in sorted(k for k in grafo[nodo_texto]["inputs"] if k.startswith("images.image_")):
+        enlace = grafo[nodo_texto]["inputs"][clave]
+        if not isinstance(enlace, list):
+            continue
+        cargador = grafo.get(enlace[0], {})
+        nombre = (cargador.get("inputs") or {}).get("image")
+        if nombre and (entrada / nombre).exists():
+            rutas.append(entrada / nombre)
+    return rutas
+
+
 async def _correr_bucle(id_bucle, grafo, intentos):
     """Generar -> criticar -> corregir, hasta que salga limpia o se agoten los intentos."""
     from PIL import Image
 
     from .critica import corregir, criticar, resumen
+    from .prompt_ia import mejorar
 
     estado = _bucles[id_bucle]
     nodo_texto = next((n for n, d in grafo.items() if d.get("class_type") == "TextEncodeQwenImage21"), None)
@@ -171,18 +187,25 @@ async def _correr_bucle(id_bucle, grafo, intentos):
         estado.update(terminado=True, error="el grafo no trae los nodos esperados")
         return
 
+    # Cuantas referencias lleva el grafo: cambia que se considera defecto y como se corrige.
+    referencias = sum(1 for k in grafo[nodo_texto]["inputs"] if k.startswith("images.image_"))
+    estado["referencias"] = referencias
+
     sin_mejora = 0
     for vuelta in range(int(intentos)):
         estado["intento"] = vuelta + 1
+        # Todo el intento va dentro del try: si algo revienta al revisar (la imagen no esta
+        # donde se espera, la IA no contesta) hay que marcar la tarea como terminada igual,
+        # o la interfaz se queda preguntando por un bucle que ya no avanza.
         try:
             archivo = await _generar_y_esperar(grafo)
+            ruta = _salida() / archivo
+            informe = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: criticar(Image.open(ruta), referencias=referencias))
         except Exception as e:
             estado.update(terminado=True, error=str(e)[:300])
             return
 
-        ruta = _salida() / archivo
-        informe = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: criticar(Image.open(ruta)))
         prompt_usado = grafo[nodo_texto]["inputs"].get("prompt", "")
         estado["historial"].append({
             "archivo": archivo,
@@ -208,12 +231,32 @@ async def _correr_bucle(id_bucle, grafo, intentos):
 
         nuevo, negativo, cambios = corregir(
             prompt_usado, grafo[nodo_texto]["inputs"].get("negative_prompt", ""),
-            informe, grafo[nodo_muestreo]["inputs"].get("seed", 0))
+            informe, grafo[nodo_muestreo]["inputs"].get("seed", 0), referencias)
         grafo[nodo_texto]["inputs"]["prompt"] = nuevo
         grafo[nodo_texto]["inputs"]["negative_prompt"] = negativo
         grafo[nodo_muestreo]["inputs"]["seed"] = cambios["seed"]
         if "steps" in cambios:
             grafo[nodo_muestreo]["inputs"]["steps"] = cambios["steps"]
+        if cambios.get("quitar_referencia_2") and "images.image_2" in grafo[nodo_texto]["inputs"]:
+            # Soltar la imagen a secas dejaria el prompt hablando de una referencia que ya
+            # no esta ("same pose as the girl in the second image"), y entonces se pierde la
+            # condicion. Antes de soltarla se le pide a la IA que la traduzca a palabras,
+            # con las dos imagenes delante para que describa la pose que hay de verdad.
+            nota = cambios["motivo_referencia"]
+            try:
+                en_palabras, aviso_ia = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: mejorar(nuevo, "imagen", referencias=2, tiempo=240,
+                                          imagenes=_rutas_referencias(grafo, nodo_texto)))
+                if not aviso_ia and "second image" not in en_palabras.lower():
+                    grafo[nodo_texto]["inputs"]["prompt"] = en_palabras
+                    nota += " La condicion se ha reescrito con palabras."
+                else:
+                    nota += " No se pudo reescribir con palabras, puede perderse la condicion."
+            except Exception as e:
+                nota += f" No se pudo reescribir con palabras ({str(e)[:80]})."
+            del grafo[nodo_texto]["inputs"]["images.image_2"]
+            referencias = 1
+            estado["historial"][-1]["nota"] = nota
 
     estado["terminado"] = True
 
@@ -246,14 +289,27 @@ async def escribir_prompt(peticion):
     from .prompt_ia import mejorar
 
     datos = await peticion.json()
+    # Las referencias se le adjuntan al modelo, que es multimodal: sin verlas se inventa
+    # lo que hay en la segunda, y para una pose o una escena —que hay que describir con
+    # palabras— inventarsela es justo el fallo que se quiere evitar.
+    entrada = Path(folder_paths.get_input_directory())
+    rutas = [entrada / n for n in (datos.get("imagenes_ref") or []) if n]
+    rutas = [r for r in rutas if r.exists()]
+
     prompt, aviso = mejorar(
         datos.get("idea", ""),
         "3d" if datos.get("para3d") else "imagen",
         semilla=datos.get("semilla") or None,
         # Con referencias cargadas el prompt describe un cambio, no una escena entera.
         referencias=int(datos.get("referencias") or 0),
+        imagenes=rutas,
+        tiempo=240 if rutas else 120,
     )
-    return web.json_response({"prompt": prompt, "aviso": aviso})
+    # Si con dos referencias el prompt no cita la segunda, es que lo pedido era una pose,
+    # una accion o una sustitucion: la IA las redacta con palabras a proposito. En ese caso
+    # dejar la referencia 2 cargada estropea el resultado, asi que se avisa.
+    soltar = int(datos.get("referencias") or 0) >= 2 and "second image" not in prompt.lower()
+    return web.json_response({"prompt": prompt, "aviso": aviso, "soltar_referencia_2": soltar})
 
 
 @rutas.post("/exo/estudio/a_entrada")

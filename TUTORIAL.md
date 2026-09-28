@@ -162,11 +162,43 @@ Lo que funciona bien (7 de 8 casos utiles):
 | Los dos objetos juntos | "both objects together side by side" | camara y manzana, fieles las dos |
 | Color concreto de 2 | "the key, but bright yellow like the flower" | llave amarilla |
 
+**Regla 3: la referencia 2 no puede prestar una pose, una accion ni una escena.** Esta se
+midio aparte, con 22 imagenes (`scripts\pruebas\probar_condiciones.py`), y es la que mas
+caro sale si no se sabe. Con un dragon de plastico en el hueco 1 y una figura de anime en
+el 2, pedir "el dragon con la pose de la chica" devolvio **a la chica**, sentada encima del
+dragon, que quedo de asiento. Paso en las cuatro formas de pedirlo, y tambien poniendo
+"girl, woman, human, person" en el prompt negativo. Con dos objetos no hay secuestro pero
+tampoco transferencia: el dragon y el flexo salieron **fusionados** en una sola pieza.
+
+Lo que si funciona es **describir la condicion con palabras y quitar la referencia 2**:
+
+| Como se pide | Pose | Actividad | Sustitucion |
+|---|---|---|---|
+| Citando la segunda imagen | mal | mal | mal |
+| En palabras, con la referencia 2 puesta | mal | bien | bien |
+| En palabras, **sin** la referencia 2 | **bien** | **bien** | **bien** |
+
+Sin la referencia 2 salieron los tres a la primera y **en la mitad de tiempo** (41 s frente
+a 86 s), porque solo hay que codificar una imagen. La expresion de la cara es la excepcion:
+esa si se transfiere citando la segunda imagen, porque una cara no compite por ser el
+sujeto. El dragon copio la sonrisa y los ojos grandes sin dejar de ser el dragon.
+
+En resumen: **la referencia 2 presta atributos sin cuerpo** —color, patron, material,
+acabado, estilo, fondo, expresion, o un segundo objeto que acompana—. Todo lo que lleve
+cuerpo se escribe con palabras y se suelta la segunda imagen.
+
 **El escritor de prompts ya conoce estas reglas.** Si pulsas "Escribir con IA" con
-referencias cargadas, se le indican cuantas hay y redacta en consecuencia: con una,
-describe el cambio ("turn the key into a matte yellow figurine, keeping the same shape");
-con dos, usa la formula que funciona y nombra el atributo. El indicador al lado del boton
-te dice cuantas referencias tuvo en cuenta.
+referencias cargadas, se le indican cuantas hay y **se le adjuntan las imagenes**, porque el
+modelo es multimodal: asi describe lo que hay de verdad en la segunda en vez de inventarselo
+(sin verlas escribia poses que no estaban ahi). Con una referencia describe el cambio ("turn
+the key into a matte yellow figurine, keeping the same shape"); con dos, nombra el atributo;
+y si le pides una pose, una accion o una sustitucion, la escribe con palabras, no cita la
+segunda imagen y te avisa de que la quites. Tampoco arrastra lo que no pediste: si pides
+solo la pose, no te trae ademas el libro y el pulpo que salian en la otra foto.
+
+Y no pide lo contrario de lo que cambia. Escribia "painted in bright yellow ... keeping its
+own colors", dos ordenes opuestas que dejaban el color a medias; ahora la frase que blinda
+la identidad nombra solo lo que se queda igual.
 
 El tamano de salida lo manda la referencia 1, asi que con referencias el selector de
 formato se desactiva. Cada generacion con dos referencias tarda unos 90 s.
@@ -195,6 +227,20 @@ sube los pasos de 20 a 28. El `cfg` no lo toca: este modelo va destilado a 1,0.
 
 Se detiene al primer intento sin defectos, o cuando agota los intentos. **Devuelve el mejor,
 no el ultimo**, porque a veces el siguiente sale peor.
+
+**Con referencias cargadas cambia de criterio**, y conviene saberlo: con dos referencias
+deja de contar "varios objetos" como defecto, porque pedir las dos cosas juntas es un
+encargo legitimo, y tampoco cuenta que el objeto salga pequeno o descentrado, que es
+inevitable cuando caben dos cosas en el cuadro. No anade frases de fondo ni de luz, que
+pelearian con la imagen de partida en vez de arreglar nada. Si el prompt no menciona la
+segunda imagen, se la recuerda al corregir para no perder la combinacion; y si lo que pide
+es una condicion —pose, gesto, accion, material, estilo—, en vez de repetir la formula del
+atributo refuerza la identidad del objeto, para que no lo sustituya por el de la segunda.
+
+**Y suelta la referencia 2 cuando estorba.** Si al corregir ve que el prompt pide una pose,
+una accion o una sustitucion, quita la segunda referencia del grafo y sigue con la
+condicion escrita en palabras, que es lo unico que funciona (regla 3, arriba). Lo deja
+escrito en la tira de intentos, para que veas por que cambio.
 
 **Que NO hace**: no arregla lo que es imposible. Con un girasol de petalos finos corrigio el
 encuadre (de 5/10 a 8/10) pero las partes finas siguieron ahi en los tres intentos: un

@@ -7,6 +7,7 @@ La direccion del servidor NO va en el codigo: se lee de config_local.json (que n
 publica) o de la variable de entorno EXO_IA_URL. Asi el repositorio no lleva la IP de
 nadie. Ver config_local.ejemplo.json.
 """
+import base64
 import json
 import os
 import urllib.error
@@ -51,13 +52,54 @@ REGLAS_DOS_REFERENCIAS = (
     "\n\nHAY 2 IMAGENES DE REFERENCIA, y se comprobo como responde el generador:\n"
     "- El OBJETO sale siempre de la referencia 1. Nunca escribas 'the object from the second "
     "image': el generador lo ignora y usa igualmente el de la primera.\n"
-    "- La referencia 2 solo aporta un atributo: color, patron, material, fondo, o un segundo "
-    "objeto que acompana.\n"
+    "- La referencia 2 solo puede aportar atributos SIN CUERPO: color, patron, material, "
+    "acabado, estilo, fondo, expresion de la cara, o un segundo objeto que acompana.\n"
     "- NOMBRA ese atributo con palabras concretas ('bright yellow', 'matte black', 'colorful "
-    "square pattern'). Escribir 'with the colors of the second image' a secas no hace nada "
-    "cuando esos colores son oscuros o apagados.\n"
-    "Formula que funciona: <objeto de la referencia 1> + <atributo nombrado> + 'like the "
-    "<cosa> in the second image'."
+    "square pattern', 'smiling with wide eyes'). Escribir 'with the colors of the second "
+    "image' a secas no hace nada cuando esos colores son oscuros o apagados.\n"
+    "Formula base: <objeto de la referencia 1> + <atributo nombrado> + 'like the <cosa> in "
+    "the second image'.\n"
+    "\nREGLA CRITICA, medida con una bateria de 22 imagenes: la segunda referencia NO puede "
+    "prestar una POSE, una ACCION, una ESCENA ni sustituir a su sujeto. Si se le pide eso, el "
+    "sujeto de la segunda imagen se apodera de la escena y el objeto de la primera queda de "
+    "decorado; con una persona o un personaje en la segunda imagen ocurre siempre, y ponerla "
+    "en el prompt negativo no lo evita. Con dos objetos, en vez de trasladar la pose los "
+    "fusiona en uno.\n"
+    "POR ESO, cuando el usuario pida una pose, una postura, una accion, una actividad, una "
+    "escena, una situacion, o que un objeto sustituya o reemplace a otro, o se ponga 'en "
+    "lugar de' otro:\n"
+    "- DESCRIBE esa condicion con palabras, mirando la segunda imagen y contando lo que ves "
+    "('sitting astride with its legs spread wide apart to the sides', 'holding a black book "
+    "with both hands in front of its chest', 'sitting on top of a large purple octopus with "
+    "orange suckers, dark background').\n"
+    "- Y NO menciones la segunda imagen en el prompt. Ni 'the second image', ni 'like the "
+    "girl', ni 'same pose as'. Solo el objeto de la primera y la condicion en palabras. Asi "
+    "acerto en los 3 casos que antes fallaban en los 9 intentos.\n"
+    "- Describe SOLO lo que te han pedido, no la segunda imagen entera. Si te piden la pose, "
+    "no anadas lo que el otro sujeto sostiene, ni los objetos que le acompanan, ni su fondo. "
+    "Si te piden la escena, no cambies la forma del objeto. Todo lo que anadas de mas es algo "
+    "que el usuario no ha pedido y que luego hay que imprimir.\n"
+    "\nSEGUN QUE SE QUIERA TRANSFERIR DE LA SEGUNDA IMAGEN:\n"
+    "- Pose, postura, accion, actividad, escena o sustitucion: EN PALABRAS, sin citar la "
+    "segunda imagen (ver la regla critica de arriba).\n"
+    "- Expresion o gesto de la cara: 'with the same facial expression as ...', nombrandola "
+    "('smiling', 'angry', 'eyes closed'). Esta si funciona citando la segunda imagen, porque "
+    "una cara no compite por ser el sujeto.\n"
+    "- Forma o silueta: 'with the same shape and proportions as ...'.\n"
+    "- Material o acabado: 'made of the same material as ...', nombrandolo ('glossy ceramic', "
+    "'rough stone', 'brushed metal').\n"
+    "- Vestuario o accesorios: 'wearing the same ... as in the second image', nombrandolo.\n"
+    "- Estilo o acabado artistico: 'in the same style as ...', describiendolo.\n"
+    "Anade siempre que se conserva la identidad del objeto de la primera, para que el "
+    "generador no lo convierta en el de la segunda, pero NO menciones en esa frase lo "
+    "que estas cambiando: nombra solo lo que se queda igual. Si transfieres el color, "
+    "escribe 'keeping its own shape and identity' (sin 'colors'); si transfieres la "
+    "forma, 'keeping its own colors, material and identity' (sin 'shape'); si "
+    "transfieres el material, 'keeping its own shape and identity'. Pedir 'keeping its "
+    "own colors' mientras se pinta de otro color es una contradiccion y el generador se "
+    "queda a medias.\n"
+    "Si el usuario pide varias condiciones a la vez, listalas separadas por comas en una sola "
+    "frase, de la mas importante a la menos."
 )
 
 
@@ -82,12 +124,27 @@ def modelo_disponible(url, tiempo=8):
     return (lista[0].get("id") or lista[0].get("name")) if lista else ""
 
 
+def _adjuntar(idea, imagenes):
+    """Mensaje del usuario con las referencias adjuntas, si el modelo puede verlas."""
+    partes = [{"type": "text", "text": idea}]
+    for i, ruta in enumerate(imagenes, 1):
+        datos = base64.b64encode(Path(ruta).read_bytes()).decode()
+        partes.append({"type": "text", "text": f"Esta es la imagen de referencia {i}:"})
+        partes.append({"type": "image_url",
+                       "image_url": {"url": "data:image/png;base64," + datos}})
+    return partes
+
+
 def mejorar(idea, modo="3d", servidor=None, modelo=None, temperatura=None, semilla=None,
-            tiempo=120, referencias=0):
+            tiempo=120, referencias=0, imagenes=None):
     """Devuelve (prompt, aviso). Si el servidor falla, devuelve la idea tal cual.
 
     'referencias' es cuantas imagenes de referencia hay cargadas (0, 1 o 2): cambia las
     instrucciones, porque con referencias el prompt describe un cambio y no una escena.
+
+    'imagenes' son las rutas de esas referencias. Se le adjuntan al modelo, que es
+    multimodal: sin verlas tiene que inventarse lo que hay en la segunda, y para una pose
+    o una escena —que hay que describir con palabras— inventarsela es justo el fallo.
     """
     cfg = ajustes()
     url = (servidor or cfg["ia_url"]).rstrip("/")
@@ -106,10 +163,18 @@ def mejorar(idea, modo="3d", servidor=None, modelo=None, temperatura=None, semil
     elif referencias == 1:
         sistema += REGLAS_UNA_REFERENCIA
 
+    aviso_imagenes = ""
+    contenido = idea
+    if imagenes:
+        try:
+            contenido = _adjuntar(idea, imagenes)
+        except OSError as e:
+            aviso_imagenes = f"no se pudieron adjuntar las referencias ({e})"
+
     cuerpo = {
         "model": nombre,
         "messages": [{"role": "system", "content": sistema},
-                     {"role": "user", "content": idea}],
+                     {"role": "user", "content": contenido}],
         "max_tokens": 400,
         "temperature": float(cfg["ia_temperatura"] if temperatura is None else temperatura),
         "stream": False,
@@ -133,7 +198,7 @@ def mejorar(idea, modo="3d", servidor=None, modelo=None, temperatura=None, semil
     texto = " ".join(texto.split()).strip().strip('"').strip("'")
     if not texto:
         return idea, "la IA devolvio una respuesta vacia; se usa la idea tal cual"
-    return texto, ""
+    return texto, aviso_imagenes
 
 
 def main():

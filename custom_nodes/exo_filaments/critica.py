@@ -120,6 +120,28 @@ def _preguntar(imagen, pregunta, tokens=700, temperatura=0.2):
     return (respuesta.get("choices") or [{}])[0].get("message", {}).get("content", "") or "", ""
 
 
+# Senales de que el prompt pide una CONDICION de la segunda imagen (pose, gesto, accion,
+# forma, material, vestuario, estilo o encuadre) y no solo un color o un patron. Cambia la
+# correccion: hay que reforzar la identidad del objeto, no repetir la formula del atributo.
+CONDICIONES = (
+    "same pose", "same position", "same posture", "same facial expression", "same expression",
+    "same gesture", "same action", "doing the same", "same shape", "same proportions",
+    "same material", "same finish", "same style", "same outfit", "wearing the same",
+    "same camera angle", "same framing", "instead of", "in place of", "replacing",
+)
+
+# De esas, las que llevan CUERPO. Medido con 22 imagenes: si el prompt pide una pose, una
+# accion, una escena o sustituir a alguien mientras la segunda referencia sigue cargada, su
+# sujeto se apodera de la escena y el objeto de la primera queda de decorado. Con una
+# persona en la segunda imagen pasa siempre, y el prompt negativo no lo evita. Lo unico que
+# funciono fue describir la condicion con palabras y soltar la segunda referencia: 3 de 3,
+# y en la mitad de tiempo.
+CONDICIONES_CON_CUERPO = (
+    "same pose", "same position", "same posture", "same action", "doing the same",
+    "instead of", "in place of", "replacing", "same framing",
+)
+
+
 def medir_encuadre(imagen):
     """Tres numeros que la IA mide mal: si toca el borde, cuanto ocupa y si esta centrado.
 
@@ -157,8 +179,13 @@ def medir_encuadre(imagen):
     }
 
 
-def criticar(imagen, revisar_anatomia="auto"):
-    """Informe completo de una imagen PIL. Devuelve un dict con defectos y puntuacion."""
+def criticar(imagen, revisar_anatomia="auto", referencias=0):
+    """Informe completo de una imagen PIL. Devuelve un dict con defectos y puntuacion.
+
+    'referencias' son las imagenes de referencia que se usaron al generar. Con dos, tener
+    varios objetos en la imagen puede ser lo pedido ("las dos cosas juntas"), asi que deja
+    de contar como defecto: si no, el bucle lo "corregiria" borrando el segundo objeto.
+    """
     informe = {"defectos": [], "detalle": [], "avisos": []}
 
     texto, aviso = _preguntar(imagen, REVISION_GENERAL, tokens=500)
@@ -196,7 +223,11 @@ def criticar(imagen, revisar_anatomia="auto"):
     if general.get("recortado") and encuadre.get("toca_borde"):
         marcar("recortado", "el objeto se sale del encuadre")
     if (general.get("objetos") or 1) > 1:
-        marcar("varios_objetos", f"hay {general.get('objetos')} objetos en la imagen")
+        if referencias >= 2:
+            informe["notas"] = informe.get("notas", []) + [
+                f"hay {general.get('objetos')} objetos, pero con dos referencias puede ser lo pedido"]
+        else:
+            marcar("varios_objetos", f"hay {general.get('objetos')} objetos en la imagen")
     if general.get("texto_o_marca"):
         marcar("texto_o_marca", "hay texto o marca de agua")
     if general.get("partes_finas"):
@@ -208,7 +239,14 @@ def criticar(imagen, revisar_anatomia="auto"):
     if general.get("sombras_duras"):
         marcar("sombras_duras", "tiene sombras duras")
     if encuadre.get("area", 1) and (encuadre["area"] < 0.12 or encuadre.get("descentrado", 0) > 0.15):
-        marcar("encuadre", f"objeto pequeno o descentrado (area {encuadre.get('area')})")
+        # Con dos referencias caben dos cosas en el cuadro, asi que cada una ocupa menos y
+        # queda descentrada por fuerza: es lo pedido, no un defecto. El corrector ya lo
+        # ignoraba, y marcarlo aqui solo hundia la puntuacion del intento bueno.
+        if referencias >= 2:
+            informe["notas"] = informe.get("notas", []) + [
+                f"objeto pequeno o descentrado (area {encuadre.get('area')}), normal al combinar dos referencias"]
+        else:
+            marcar("encuadre", f"objeto pequeno o descentrado (area {encuadre.get('area')})")
 
     # --- anatomia: la lista de defectos manda sobre las banderas ---
     # En la prueba con dos cabezas las banderas decian false y fue la lista la que lo vio.
@@ -224,13 +262,27 @@ def criticar(imagen, revisar_anatomia="auto"):
     informe["problemas_ia"] = general.get("problemas") or []
     informe["que_es"] = general.get("que_es", "")
     informe["tipo"] = tipo
+    informe["referencias"] = referencias
     return informe
 
 
-def corregir(prompt, negativo, informe, semilla_actual=0):
-    """Prompt y negativo corregidos segun los defectos. Reglas fijas, sin improvisar."""
+def corregir(prompt, negativo, informe, semilla_actual=0, referencias=None):
+    """Prompt y negativo corregidos segun los defectos. Reglas fijas, sin improvisar.
+
+    Con referencias cargadas el prompt no describe una escena sino un cambio, asi que no
+    se le pegan frases de encuadre que contradirian la imagen de partida, y con dos nunca
+    se pide "un solo objeto": seria borrar la combinacion que se ha pedido.
+    """
+    if referencias is None:
+        referencias = int(informe.get("referencias") or 0)
     anadir, negar = [], []
     for defecto in informe.get("defectos", []):
+        if referencias >= 2 and defecto in ("varios_objetos", "encuadre"):
+            continue
+        if referencias >= 1 and defecto in ("fondo_sucio", "sombras_duras"):
+            # Con referencia, el fondo y la luz vienen de la imagen original; pedir otra
+            # cosa pelea con ella en vez de arreglar nada.
+            continue
         mas, menos = REMEDIOS.get(defecto, ("", ""))
         if mas and mas.lower() not in prompt.lower():
             anadir.append(mas)
@@ -240,11 +292,28 @@ def corregir(prompt, negativo, informe, semilla_actual=0):
     nuevo = prompt.rstrip(" .,")
     if anadir:
         nuevo += ", " + ", ".join(anadir)
+    if referencias >= 2:
+        # Se conserva la formula medida: el objeto sale de la referencia 1 y lo que se toma
+        # de la 2 hay que nombrarlo apuntando a ella. Si lo que se pide es una condicion
+        # (pose, gesto, accion, material, estilo) y no un color, hay que blindar ademas la
+        # identidad del objeto, o el generador lo reemplaza por el de la segunda imagen.
+        if not any(c in nuevo.lower() for c in CONDICIONES):
+            if "second image" not in nuevo.lower():
+                nuevo += ", keeping the object from the first image and the attribute from the second image"
+        elif "identity" not in nuevo.lower():
+            nuevo += ", keeping its own shape, colors and identity from the first image"
     nuevo_negativo = ", ".join(filter(None, [(negativo or "").strip(" ,")] + negar))
 
     cambios = {"seed": int(semilla_actual) + 1013904223 & 0xFFFFFFFF}   # siempre otra semilla
     if "anatomia" in informe.get("defectos", []) or "partes_finas" in informe.get("defectos", []):
         cambios["steps"] = 28   # mas pasos ayudan a resolver manos y detalles finos
+    if referencias >= 2 and any(c in nuevo.lower() for c in CONDICIONES_CON_CUERPO):
+        # La condicion ya esta descrita en el prompt; la segunda referencia solo puede
+        # robarle el sitio al sujeto. Se suelta y se deja dicho por que.
+        cambios["quitar_referencia_2"] = True
+        cambios["motivo_referencia"] = (
+            "se suelta la referencia 2: con una pose, una accion o una sustitucion, su sujeto "
+            "se apodera de la escena.")
     return nuevo, nuevo_negativo, cambios
 
 

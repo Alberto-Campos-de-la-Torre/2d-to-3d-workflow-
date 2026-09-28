@@ -175,7 +175,7 @@
         <input type="file" id="ref-archivo-2" accept="image/*" style="flex:1; min-width:0;">
         <button id="ref-quitar-2" hidden title="Quitar referencia 2">×</button>
       </div>
-      <p class="nota" id="ref-nota">Opcional. Con una referencia, el prompt describe el cambio («quita el fondo», «hazlo en PLA rojo»…). Con dos, <b>el objeto sale siempre de la referencia 1</b> y la 2 aporta color, patrón, fondo o un segundo objeto. Nombra el atributo en concreto («amarillo brillante», «los cuadros de colores»): pedir «los colores de la segunda» a secas suele no hacer nada. El tamaño sale de la referencia 1.</p>
+      <p class="nota" id="ref-nota">Opcional. Con una referencia, el prompt describe el cambio («quita el fondo», «hazlo en PLA rojo»…). Con dos, <b>el objeto sale siempre de la referencia 1</b> y la 2 solo presta atributos <b>sin cuerpo</b>: color, patrón, material, estilo, fondo o la expresión de la cara. Nómbralos en concreto («amarillo brillante»): pedir «los colores de la segunda» a secas no suele hacer nada.<br>Para una <b>pose, una acción, una escena o sustituir un objeto por otro</b>, describe la condición con palabras y <b>quita la referencia 2</b>: si se queda cargada, su sujeto se apodera de la escena y tu objeto acaba de decorado. «Escribir con IA» ya lo redacta así, y el bucle la suelta solo al corregir. El tamaño sale de la referencia 1.</p>
     </div>
 
     <details>
@@ -387,7 +387,8 @@ function pintarIntentos(historial, enCurso, nota) {
     img.addEventListener("click", () => { $("prompt").value = intento.prompt; });
     const txt = document.createElement("div");
     txt.innerHTML = `<b>Intento ${i + 1} · ${intento.puntuacion}/10</b><br>` +
-      (intento.defectos.length ? intento.detalle.join("<br>") : "sin defectos");
+      (intento.defectos.length ? intento.detalle.join("<br>") : "sin defectos") +
+      (intento.nota ? `<br><i style="opacity:.7">${intento.nota}</i>` : "");
     txt.style.cssText = "line-height:1.4; opacity:.85";
     fila.append(img, txt);
     caja.appendChild(fila);
@@ -415,7 +416,10 @@ async function escribirConIA() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idea, para3d: $("para3d").checked, semilla: Date.now() % 100000,
-                             referencias: referencias().length }),
+                             referencias: referencias().length,
+                             // La IA es multimodal: si ve las referencias describe lo que hay
+                             // de verdad en la segunda en vez de inventarselo.
+                             imagenes_ref: referencias() }),
     });
     const datos = await r.json();
     if (datos.aviso) {
@@ -430,6 +434,12 @@ async function escribirConIA() {
     const nRefs = referencias().length;
     $("ia-estado").textContent = ($("para3d").checked ? "con reglas para 3D" : "modo imagen")
       + (nRefs ? ` · ${nRefs} referencia${nRefs > 1 ? "s" : ""}` : "");
+    if (datos.soltar_referencia_2) {
+      // La condición va escrita con palabras: con la referencia 2 cargada, su sujeto se
+      // queda con la escena. No se quita sola porque es una imagen que tú pusiste.
+      aviso("La condición ya va descrita con palabras. Quita la referencia 2 con su ×: si se "
+            + "queda, su sujeto se apodera de la escena y tu objeto acaba de decorado.", true);
+    }
   } catch (e) {
     aviso("No se pudo hablar con la IA: " + e.message, true);
     $("ia-estado").textContent = "";

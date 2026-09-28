@@ -233,6 +233,9 @@ class ExoRevisarImagen(IO.ComfyNode):
                 IO.Image.Input("image"),
                 IO.Combo.Input("revisar_anatomia", options=["auto", "siempre", "nunca"], default="auto",
                                tooltip="'auto' la revisa solo si la IA ve una figura, un animal o un personaje."),
+                IO.Int.Input("referencias", default=0, min=0, max=2,
+                             tooltip="Referencias que se usaron al generar. Con 2, tener varios objetos "
+                                     "deja de contar como defecto: puede ser justo lo que se pidio."),
             ],
             outputs=[
                 IO.String.Output("informe"),
@@ -243,11 +246,11 @@ class ExoRevisarImagen(IO.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, revisar_anatomia):
+    def execute(cls, image, revisar_anatomia, referencias=0):
         from .critica import criticar, resumen
 
         modo = {"auto": "auto", "siempre": True, "nunca": False}[revisar_anatomia]
-        informe = criticar(_a_pil(image), modo)
+        informe = criticar(_a_pil(image), modo, int(referencias))
         texto = resumen(informe)
         return IO.NodeOutput(json.dumps(informe, ensure_ascii=False), bool(informe.get("apto")),
                              float(informe.get("puntuacion") or 0.0), ui={"text": (texto,)})
