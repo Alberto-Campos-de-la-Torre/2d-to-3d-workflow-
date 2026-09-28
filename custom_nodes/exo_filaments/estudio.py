@@ -173,7 +173,7 @@ def _rutas_referencias(grafo, nodo_texto):
     return rutas
 
 
-async def _correr_bucle(id_bucle, grafo, intentos):
+async def _correr_bucle(id_bucle, grafo, intentos, para3d=True):
     """Generar -> criticar -> corregir, hasta que salga limpia o se agoten los intentos."""
     from PIL import Image
 
@@ -201,7 +201,8 @@ async def _correr_bucle(id_bucle, grafo, intentos):
             archivo = await _generar_y_esperar(grafo)
             ruta = _salida() / archivo
             informe = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: criticar(Image.open(ruta), referencias=referencias))
+                None, lambda: criticar(Image.open(ruta), referencias=referencias,
+                                       para3d=para3d))
         except Exception as e:
             estado.update(terminado=True, error=str(e)[:300])
             return
@@ -231,7 +232,7 @@ async def _correr_bucle(id_bucle, grafo, intentos):
 
         nuevo, negativo, cambios = corregir(
             prompt_usado, grafo[nodo_texto]["inputs"].get("negative_prompt", ""),
-            informe, grafo[nodo_muestreo]["inputs"].get("seed", 0), referencias)
+            informe, grafo[nodo_muestreo]["inputs"].get("seed", 0), referencias, para3d)
         grafo[nodo_texto]["inputs"]["prompt"] = nuevo
         grafo[nodo_texto]["inputs"]["negative_prompt"] = negativo
         grafo[nodo_muestreo]["inputs"]["seed"] = cambios["seed"]
@@ -245,7 +246,7 @@ async def _correr_bucle(id_bucle, grafo, intentos):
             nota = cambios["motivo_referencia"]
             try:
                 en_palabras, aviso_ia = await asyncio.get_event_loop().run_in_executor(
-                    None, lambda: mejorar(nuevo, "imagen", referencias=2, tiempo=240,
+                    None, lambda: mejorar(nuevo, "3d" if para3d else "imagen", referencias=2, tiempo=240,
                                           imagenes=_rutas_referencias(grafo, nodo_texto)))
                 if not aviso_ia and "second image" not in en_palabras.lower():
                     grafo[nodo_texto]["inputs"]["prompt"] = en_palabras
@@ -266,8 +267,12 @@ async def bucle(peticion):
     """Arranca el bucle de correccion y devuelve un id para seguirlo."""
     datos = await peticion.json()
     id_bucle = uuid.uuid4().hex[:12]
-    _bucles[id_bucle] = {"intento": 0, "historial": [], "mejor": None, "terminado": False, "error": ""}
-    asyncio.create_task(_correr_bucle(id_bucle, datos["grafo"], datos.get("intentos", 3)))
+    _bucles[id_bucle] = {"intento": 0, "historial": [], "mejor": None, "terminado": False,
+                         "error": "", "para3d": bool(datos.get("para3d"))}
+    # 'para3d' decide con que criterio se revisa: con el puesto se exige lo que necesita
+    # la conversion a pieza; sin el solo se buscan los fallos de cualquier imagen.
+    asyncio.create_task(_correr_bucle(id_bucle, datos["grafo"], datos.get("intentos", 3),
+                                      bool(datos.get("para3d"))))
     return web.json_response({"id": id_bucle})
 
 

@@ -47,6 +47,12 @@ REVISION_ANATOMIA = (
     "Cuenta solo lo que VES con claridad. No inventes defectos."
 )
 
+# Defectos que solo lo son si la imagen se va a convertir en 3D. En una imagen normal
+# unos petalos finos, un cristal, dos objetos o un fondo con escenario no son un fallo:
+# son decisiones. Marcarlos ahi seria nagear al usuario con reglas de impresion que no ha
+# pedido, y el corrector le llenaria el prompt de "thick solid forms" sin motivo.
+SOLO_3D = ("partes_finas", "transparente", "varios_objetos", "fondo_sucio", "sombras_duras")
+
 # Peso de cada defecto al puntuar. Sirve para comparar intentos entre si.
 PESOS = {
     "anatomia": 3, "recortado": 3, "varios_objetos": 2, "transparente": 2,
@@ -179,12 +185,17 @@ def medir_encuadre(imagen):
     }
 
 
-def criticar(imagen, revisar_anatomia="auto", referencias=0):
+def criticar(imagen, revisar_anatomia="auto", referencias=0, para3d=True):
     """Informe completo de una imagen PIL. Devuelve un dict con defectos y puntuacion.
 
     'referencias' son las imagenes de referencia que se usaron al generar. Con dos, tener
     varios objetos en la imagen puede ser lo pedido ("las dos cosas juntas"), asi que deja
     de contar como defecto: si no, el bucle lo "corregiria" borrando el segundo objeto.
+
+    'para3d' dice si la imagen se va a convertir en pieza. Con el puesto se exige lo que
+    necesita la conversion (un objeto, macizo, opaco, sobre fondo liso); sin el solo se
+    buscan los fallos que lo son en cualquier imagen: anatomia, recortes, marcas de agua y
+    encuadre. Ver SOLO_3D.
     """
     informe = {"defectos": [], "detalle": [], "avisos": []}
 
@@ -212,6 +223,10 @@ def criticar(imagen, revisar_anatomia="auto", referencias=0):
     informe["anatomia"] = anatomia
 
     def marcar(clave, motivo):
+        if not para3d and clave in SOLO_3D:
+            # En modo imagen se anota, pero no cuenta ni baja la puntuacion.
+            informe["notas"] = informe.get("notas", []) + [motivo + " (solo importa para 3D)"]
+            return
         if clave not in informe["defectos"]:
             informe["defectos"].append(clave)
         informe["detalle"].append(motivo)
@@ -263,10 +278,11 @@ def criticar(imagen, revisar_anatomia="auto", referencias=0):
     informe["que_es"] = general.get("que_es", "")
     informe["tipo"] = tipo
     informe["referencias"] = referencias
+    informe["para3d"] = para3d
     return informe
 
 
-def corregir(prompt, negativo, informe, semilla_actual=0, referencias=None):
+def corregir(prompt, negativo, informe, semilla_actual=0, referencias=None, para3d=None):
     """Prompt y negativo corregidos segun los defectos. Reglas fijas, sin improvisar.
 
     Con referencias cargadas el prompt no describe una escena sino un cambio, asi que no
@@ -275,9 +291,13 @@ def corregir(prompt, negativo, informe, semilla_actual=0, referencias=None):
     """
     if referencias is None:
         referencias = int(informe.get("referencias") or 0)
+    if para3d is None:
+        para3d = bool(informe.get("para3d", True))
     anadir, negar = [], []
     for defecto in informe.get("defectos", []):
         if referencias >= 2 and defecto in ("varios_objetos", "encuadre"):
+            continue
+        if not para3d and defecto in SOLO_3D:
             continue
         if referencias >= 1 and defecto in ("fondo_sucio", "sombras_duras"):
             # Con referencia, el fondo y la luz vienen de la imagen original; pedir otra

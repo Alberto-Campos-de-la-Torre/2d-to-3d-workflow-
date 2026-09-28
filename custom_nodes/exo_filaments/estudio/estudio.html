@@ -141,7 +141,8 @@
     <div id="tira-intentos" hidden style="display:flex; flex-direction:column; gap:6px; margin:4px 0 8px"></div>
 
     <label class="check"><input type="checkbox" id="transparente"> Fondo transparente (PNG con canal alfa)</label>
-    <label class="check"><input type="checkbox" id="para3d"> Pensada para pasar a 3D (objeto entero, centrado, fondo liso)</label>
+    <label class="check"><input type="checkbox" id="para3d"> <b>Esta imagen se va a imprimir en 3D</b></label>
+    <p class="nota" style="margin:-2px 0 8px 22px">Cambia las tres cosas a la vez: la IA escribe el prompt con las reglas de la conversion (un objeto entero, centrado, fondo liso), se anaden esas mismas condiciones al generar, y la revision exige que la pieza se pueda imprimir. Sin marcar es una imagen normal: solo se buscan anatomia mal resuelta, recortes, marcas de agua y encuadre, y no te reprochara partes finas, cristales, varios objetos ni un fondo con escenario.</p>
 
     <div>
       <label>Formato</label>
@@ -348,13 +349,17 @@ async function generarHastaQueSalgaBien() {
     const r = await post("/exo/estudio/bucle", {
       grafo: grafo(semilla),
       intentos: +$("intentos-bucle").value,
+      // Decide con que criterio se revisa: con 3D se exige objeto entero, macizo y opaco.
+      para3d: $("para3d").checked,
     });
     // Se consulta el progreso cada 2 s: cada vuelta son ~25 s de imagen y ~10 s de revisión.
     let estado;
     do {
       await new Promise((r) => setTimeout(r, 2000));
       estado = await (await fetch(`/exo/estudio/bucle/${r.id}`)).json();
-      pintarIntentos(estado.historial, estado.intento, estado.terminado ? "" : "generando…");
+      pintarIntentos(estado.historial, estado.intento,
+        estado.terminado ? (estado.para3d ? "revisado para imprimir en 3D" : "revisado como imagen")
+                         : "generando…");
     } while (!estado.terminado);
 
     if (estado.error) aviso("El bucle se detuvo: " + estado.error, true);

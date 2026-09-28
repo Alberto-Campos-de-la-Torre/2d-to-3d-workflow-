@@ -115,6 +115,22 @@ del generador de imagen y tarda un par de segundos.
   producto final.
 - **semilla**: cambiala para obtener otra redaccion de la misma idea.
 
+**En el Estudio, el interruptor es la casilla "Esta imagen se va a imprimir en 3D"**, y es
+la que mas cambia el resultado, asi que conviene marcarla antes de empezar. No decide solo
+como se escribe el prompt: manda sobre las tres etapas.
+
+| | Casilla marcada (para imprimir) | Casilla sin marcar (imagen normal) |
+|---|---|---|
+| La IA escribe el prompt | con las reglas de la conversion: un objeto entero, centrado, tres cuartos, fondo liso, nada de humo ni telas al viento | amplia la idea libremente, con la composicion y el estilo que pidas |
+| Al generar | anade esas mismas condiciones al final del prompt | no anade nada |
+| La revision | exige que la pieza se pueda imprimir: partes finas, cristales, varios objetos y fondos con escenario cuentan como defecto | solo busca los fallos de cualquier imagen: anatomia, recortes, marcas de agua, encuadre |
+| El corrector | mete "thick solid forms", "opaque matte material", "one single object"… | no toca el material ni la composicion |
+
+El mismo girasol, revisado de las dos maneras: **8/10 y no apto** para imprimir por los
+petalos finos, **10/10 y apto** como imagen, con los petalos anotados como observacion en
+vez de como defecto. Y una escultura de cristal, corrigiendola en modo 3D, acaba pidiendo
+material opaco; en modo imagen sigue siendo de cristal, que es lo que se pidio.
+
 Desde la linea de comandos va activado por defecto:
 
     PY scripts\texto_a_pieza.py "un zorro sentado, figura de resina" --altura 75
