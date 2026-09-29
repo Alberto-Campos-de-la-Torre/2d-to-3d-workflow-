@@ -77,12 +77,15 @@ def hoja_de_vistas(mesh, lado=512):
 
 def medir_llenado(mesh):
     """Que fraccion de su caja envolvente ocupa la pieza. Delata las cascaras huecas."""
+    from .geometria import volumen as medir_volumen
+
     vertices = mesh.vertices[0].detach().cpu().numpy().astype(np.float64)
     caras = mesh.faces[0].detach().cpu().numpy().astype(np.int64)
-    a, b, c = vertices[caras[:, 0]], vertices[caras[:, 1]], vertices[caras[:, 2]]
-    volumen = abs(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6.0)
+    # Sin la medida por voxeles, una malla mal orientada daba un llenado ridiculo y la
+    # revision cantaba "parece hueca" en piezas perfectamente macizas.
+    solido, _ = medir_volumen(vertices, caras)
     caja = float(np.prod(vertices.max(axis=0) - vertices.min(axis=0))) or 1.0
-    return round(volumen / caja, 3)
+    return round(solido / caja, 3)
 
 
 def revisar_pieza(mesh, descripcion="", lado=512):

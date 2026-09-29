@@ -63,10 +63,17 @@ def _aristas_abiertas(vertices, caras):
 
 
 def _volumen_area(vertices, caras):
-    a, b, c = vertices[caras[:, 0]], vertices[caras[:, 1]], vertices[caras[:, 2]]
-    cruz = np.cross(b - a, c - a)
-    volumen = abs(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6.0)
-    return float(volumen), float(np.linalg.norm(cruz, axis=1).sum() / 2.0)
+    """Volumen y area. El volumen no se fia de como esten orientadas las caras.
+
+    El firmado se cancela solo cuando parte de la superficie mira del reves, y eso pasa
+    tras solidificar y decimar: en un dragon de 80 mm daba 22,1 cm3 contra los 105,3 reales.
+    De ese numero sale el peso que se cobra, asi que se contrasta con una medida por
+    voxeles (ver geometria.py y scripts/pruebas/probar_volumen.py).
+    """
+    from .geometria import area, volumen
+
+    valor, metodo = volumen(vertices, caras)
+    return float(valor), float(area(vertices, caras)), metodo
 
 
 class ExoPaletaFilamentos(IO.ComfyNode):
@@ -171,8 +178,10 @@ class ExoInformeImpresion(IO.ComfyNode):
         factor = altura_mm / float(medidas.max())
         centrado = (vertices - (vertices.max(axis=0) + vertices.min(axis=0)) / 2.0) * factor
 
-        volumen_mm3, area_mm2 = _volumen_area(centrado, caras)
+        volumen_mm3, area_mm2, metodo_volumen = _volumen_area(centrado, caras)
         volumen_cm3, area_cm2 = volumen_mm3 / 1000.0, area_mm2 / 100.0
+        aviso_volumen = ("  (medido por voxeles: la malla no esta bien orientada)"
+                         if metodo_volumen == "voxeles" else "")
         volumen_pared = min(area_cm2 * pared_mm / 10.0, volumen_cm3)
         material_cm3 = volumen_pared + max(volumen_cm3 - volumen_pared, 0.0) * relleno / 100.0
         peso = material_cm3 * DENSIDAD[material]
@@ -194,7 +203,7 @@ class ExoInformeImpresion(IO.ComfyNode):
         ]
         if fiable:
             lineas += [
-                f"volumen     {volumen_cm3:.1f} cm3",
+                f"volumen     {volumen_cm3:.1f} cm3{aviso_volumen}",
                 f"material    {material} al {relleno:.0f} % de relleno",
                 f"peso aprox  {peso:.1f} g",
             ]

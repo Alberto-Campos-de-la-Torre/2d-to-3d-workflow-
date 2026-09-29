@@ -53,6 +53,22 @@ Los nodos muestran su resultado en el propio grafo:
 | **Revisar grosor de pared** | `zonas finas` por debajo del 5% esta bien. Por encima, la pieza tendra partes fragiles: sube la altura o avisa al cliente. |
 | **Revisar pieza terminada** | La unica revision que mira la PIEZA y no los numeros. Da las cuatro vistas renderizadas, si se parece a lo pedido, y **cuanto llena de su caja**. |
 
+#### Como se mide el volumen (y por que importa al cobrar)
+
+El volumen se sacaba con la formula del teorema de la divergencia, que es exacta **si** la
+superficie esta cerrada y todas las caras miran hacia el mismo lado. Lo segundo no siempre
+se cumple despues de solidificar y decimar, y cuando falla no falla poco: en el dragon de
+prueba daba **22,1 cm3 cuando el solido real son 98,5**, y el peso salia en 27,4 g en vez de
+56,3. Cobrando por gramos, eso es la mitad de lo que toca.
+
+Ahora se mide de las dos formas y se contrastan. Si la firmada se queda muy por debajo, es
+que la superficie no esta bien orientada y se usa una medida por voxeles, que no depende de
+la orientacion; el informe lo dice cuando pasa. Validado contra cubo, esfera y cilindro, con
+las caras bien y con la mitad invertidas a proposito: con la malla buena el error es del
+0,2 %, y con la malla rota —donde la formula firmada da **cero**— la de voxeles queda entre
+el 2 % y el 4 %, siempre por arriba, que para calcular material es el lado seguro. La prueba
+esta en `scripts\pruebas\probar_volumen.py`.
+
 #### El dato del llenado, que es el que mas sorprende
 
 `llena X de su caja` compara el volumen de la pieza con el de la caja que la envuelve.
@@ -419,6 +435,30 @@ se miran los dedos.
 Lo que **no** cambia por estar en red: la GPU sigue siendo la de este PC, asi que generar
 desde el movil tarda lo mismo y ocupa la misma cola. Dos personas generando a la vez se
 turnan.
+
+### De imagen a pieza, tambien desde el movil
+
+`http://<la direccion>:8188/exo/pieza`, o el enlace **"Imagen → pieza 3D"** que hay en la
+cabecera del Estudio. El grafo de ComfyUI no se maneja con el dedo —nodos diminutos, cables
+y zoom—, asi que esta pagina hace el mismo flujo con cuatro controles:
+
+1. **La imagen**: lo generado en el Estudio y lo que haya en `input/`. Se toca y se elige.
+2. **Como se va a imprimir**: altura en mm, material, relleno, pared minima, y si lleva
+   color. Con color se usan los filamentos que le digas y se reparten los colores de la
+   pieza entre ellos, que es la base de la impresion multicolor.
+3. **Convertir**. Tarda unos 5 minutos. Puedes cerrar el movil y volver: el trabajo sigue
+   en el PC, lo unico que se pierde es el seguimiento en pantalla.
+4. **El resultado**: las cuatro vistas de la pieza renderizadas, los cuatro informes
+   (solidificacion, medidas y peso, grosor de paredes, revision de la pieza) y los botones
+   para descargar el STL y el OBJ.
+
+Es el mismo flujo medido de siempre, no una version reducida: solidifica, mide y revisa
+igual. Lo que cambia es que cabe en una pantalla de telefono.
+
+**Sin color tambien solidifica.** Si quitas el color se usa la misma cadena de limpieza
+—solidificar, decimar, suavizar— por separado, porque la malla en bruto del generador no es
+imprimible: sale como cascara hueca y con agujeros. En el dragon de prueba: 163.748 agujeros
+de entrada, 0 de salida, solido cerrado.
 
 ---
 
