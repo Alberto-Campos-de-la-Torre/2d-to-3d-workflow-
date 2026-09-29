@@ -25,6 +25,9 @@ VISTAS = [
 PREGUNTA = (
     "Estas revisando una pieza 3D antes de imprimirla. La imagen muestra la MISMA pieza "
     "desde cuatro angulos: frente, perfil, espalda y tres cuartos.\n"
+    "El fondo gris liso NO es parte de la pieza. La pieza si puede tener partes muy "
+    "oscuras, como el pelo o la ropa: una zona negra es material, no un hueco ni una "
+    "parte que falte.\n"
     "PASO 1: describe que ves en cada vista y si las cuatro son coherentes entre si. "
     "Fijate en si falta alguna parte por detras, si hay bultos o hundimientos raros, si la "
     "figura esta deformada y si se sostiene de pie.\n"
@@ -56,7 +59,14 @@ def _girar(mesh, angulos):
     return RotateMesh.execute(mesh=mesh, mode=modo).result[0]
 
 
-def _render(mesh, lado=512, fondo="#202020"):
+# Gris azulado medio: contrasta a la vez con el pelo negro, la camiseta blanca y la
+# piel, que es lo que sale en una figura de una persona. Con el fondo casi negro que habia
+# antes, el pelo negro de un funko se fundia con el y el revisor veia "cabeza flotante",
+# "cuello desconectado" y "faltan partes" en una pieza que estaba entera.
+FONDO_VISTAS = "#7a8290"
+
+
+def _render(mesh, lado=512, fondo=FONDO_VISTAS):
     from comfy_extras.nodes_mesh_postprocess import RenderMesh
 
     salida = RenderMesh.execute(mesh=mesh, mode="auto", width=lado, height=lado, background=fondo)
@@ -67,7 +77,7 @@ def hoja_de_vistas(mesh, lado=512):
     """Las cuatro vistas en una sola imagen 2x2: una consulta en vez de cuatro."""
     from PIL import Image
 
-    hoja = Image.new("RGB", (lado * 2, lado * 2), (32, 32, 32))
+    hoja = Image.new("RGB", (lado * 2, lado * 2), (122, 130, 144))
     for i, (_nombre, angulos) in enumerate(VISTAS):
         imagen = _render(_girar(mesh, angulos), lado)
         datos = np.clip(imagen[0].detach().cpu().numpy() * 255, 0, 255).astype(np.uint8)

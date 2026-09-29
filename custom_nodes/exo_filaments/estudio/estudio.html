@@ -610,7 +610,12 @@ function pintarEstadoReferencias() {
 function textoFinal() {
   let texto = $("prompt").value.trim();
   if ($("para3d").checked)
-    texto += ". Single complete object, fully visible and centered, three-quarter view, plain neutral background, soft even lighting, no cropping, no text.";
+    // "subject", no "object": decir objeto empujaba al generador lejos de las figuras de
+    // personas, que es justo lo que mas se imprime. Con referencia la coletilla es mas
+    // corta, porque ahi el prompt describe un cambio y no una escena entera.
+    texto += referencias().length
+      ? ". Keep it as one single complete figure, centered, plain neutral background, soft even lighting, nothing cropped, no text."
+      : ". Single complete subject, fully visible and centered, three-quarter view, plain neutral background, soft even lighting, no cropping, no text.";
   if ($("transparente").checked)
     texto = `This is an RGBA format image with transparency. ${texto} The image has an alpha channel and a transparent background.`;
   return texto;
