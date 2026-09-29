@@ -47,6 +47,9 @@ paleta en el nodo sin tener que teclear codigos hexadecimales.
 4. Descargar los modelos: ver **`REQUISITOS.md`** (`scripts/descargar_modelos.ps1` lo hace
    con verificacion de checksum y reanudacion).
 5. Arrancar con `Iniciar_ComfyUI_3D.bat` y abrir el flujo desde la barra lateral.
+   Para entrar tambien desde el movil o desde otro equipo de la red local, usar
+   `Iniciar_ComfyUI_LAN.bat` y leer antes el aviso que lleva dentro: ComfyUI no
+   pide contrasena, asi que solo en una red de confianza.
 
 > **Las rutas estan fijadas a `D:\AI3D`** en los scripts y el .bat. Si instalas en otro
 > sitio, busca y reemplaza esa ruta. Los nodos de ComfyUI no dependen de ella.

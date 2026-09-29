@@ -33,6 +33,9 @@
   h1 { font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; }
   h1 small { font-weight: 400; color: var(--suave); font-size: 11px; }
   .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Fila de controles sueltos (boton + etiqueta + selector). En rejilla de dos
+     columnas cada etiqueta acababa separada de su selector al estrecharse. */
+  .controles { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .fila3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chips button { padding: 4px 8px; font-size: 12px; }
@@ -117,6 +120,24 @@
     .visor.abierto { grid-template-columns: 1fr; grid-template-rows: 60vh auto; overflow-y: auto; }
     .herramientas input[type=text] { width: 100%; }
   }
+  /* Movil: se maneja con el dedo, no con el raton. */
+  @media (max-width: 560px) {
+    /* 16px es el minimo que evita que iOS haga zoom solo al tocar un campo. */
+    input, select, textarea, button { font-size: 16px; }
+    button, select { min-height: 42px; }
+    .acciones button, .veredicto button { min-height: 46px; }
+    .chips button { min-height: 40px; padding: 8px 12px; }
+    .controles { gap: 8px; }
+    .controles button { flex: 1 1 100%; }
+    .fila3 { grid-template-columns: 1fr 1fr; }
+    .rejilla { grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
+    /* El visor a pantalla completa: en el movil es donde se mira y se decide. */
+    .visor.abierto { grid-template-rows: 52vh auto; }
+    .lienzo { padding: 8px; }
+    .lienzo img { max-height: 52vh; }
+    .atajos { display: none; }   /* no hay teclado que atajar */
+    .comparador .lados { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -127,13 +148,13 @@
     <div>
       <label for="prompt">Qué quieres ver</label>
       <textarea id="prompt" rows="6" placeholder="Figura de un dragón pequeño sentado, estilo juguete de vinilo, fondo liso…"></textarea>
-      <div class="fila" style="margin-top:6px; align-items:center; gap:10px">
+      <div class="controles" style="margin-top:6px">
         <button id="escribir-ia" title="Convierte lo que hay escrito en un prompt completo, con tu IA local">Escribir con IA</button>
         <button id="deshacer-ia" hidden>Deshacer</button>
         <small id="ia-estado" style="opacity:.7"></small>
       </div>
     </div>
-    <div class="fila" style="align-items:center; gap:10px; margin:4px 0 2px">
+    <div class="controles" style="margin:4px 0 2px">
       <button id="hasta-bien" title="Genera, revisa la imagen y corrige el prompt hasta que salga sin defectos">Generar hasta que salga bien</button>
       <label for="intentos-bucle" style="opacity:.8">intentos</label>
       <select id="intentos-bucle" style="width:64px"><option>2</option><option selected>3</option><option>4</option></select>
@@ -245,7 +266,7 @@
     <div style="margin:8px 0">
       <label for="observaciones">¿Qué le falla a esta imagen?</label>
       <textarea id="observaciones" rows="3" placeholder="A la niña de la izquierda le sale un brazo que no se conecta a nadie. El texto de la camiseta no se lee."></textarea>
-      <div class="fila" style="margin-top:6px; align-items:center; gap:10px">
+      <div class="controles" style="margin-top:6px">
         <button id="corregir-obs" title="La IA mira la imagen y tu comentario, y reescribe el prompt">Corregir el prompt con esto</button>
         <small id="obs-estado" style="opacity:.7"></small>
       </div>
@@ -302,6 +323,13 @@ function aviso(texto, error = false) {
 }
 function urlImagen(nombre) {
   return `/view?filename=${encodeURIComponent(nombre)}&subfolder=${CARPETA}&type=output`;
+}
+// Para la galería y el comparador: ComfyUI reconvierte al vuelo y una miniatura pasa de
+// 1,5 MB a 63 KB. Con 59 imágenes eso es 88 MB contra 3,7 MB, que por wifi y desde el
+// móvil es la diferencia entre usable y no usable. El visor sigue a resolución completa,
+// que es donde se miran los dedos.
+function urlMiniatura(nombre) {
+  return urlImagen(nombre) + "&preview=webp;70";
 }
 async function json(url, opciones) {
   const r = await fetch(url, opciones);
@@ -742,7 +770,7 @@ function pintarGaleria() {
     t.className = "tarjeta" + (r.estado === "descartada" ? " descartada" : "") + (estado.comparar.includes(img.archivo) ? " elegida" : "");
     const foto = document.createElement("img");
     foto.loading = "lazy";
-    foto.src = urlImagen(img.archivo);
+    foto.src = urlMiniatura(img.archivo);
     foto.alt = img.prompt ?? img.archivo;
     t.appendChild(foto);
     if (r.estado) {
@@ -957,7 +985,7 @@ function abrirComparador() {
   fichas.forEach((f, k) => {
     const lado = document.createElement("div");
     lado.className = "lado";
-    const img = document.createElement("img"); img.src = urlImagen(f.archivo);
+    const img = document.createElement("img"); img.src = urlMiniatura(f.archivo);
     const dl = document.createElement("dl"); dl.className = "datos";
     datos[k].forEach(([clave, valor], j) => {
       if (clave === "Fecha") return;

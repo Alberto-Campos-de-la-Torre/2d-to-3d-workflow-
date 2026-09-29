@@ -375,6 +375,53 @@ bobinas), `--tal-cual` (no anadir las indicaciones de encuadre).
 
 ---
 
+## Usarlo desde el movil y desde otros equipos de la red
+
+Hay dos lanzadores, y la diferencia importa:
+
+| Archivo | Quien puede entrar |
+|---|---|
+| `Iniciar_ComfyUI_3D.bat` | solo este PC (127.0.0.1). Es el de siempre. |
+| `Iniciar_ComfyUI_LAN.bat` | cualquier equipo de tu red local: moviles, tablets, otros PC. |
+
+El de red escucha en `0.0.0.0:8188` y, al arrancar, **imprime las direcciones** a las que
+entrar desde el movil. Si sale mas de una, prueba la de tu wifi.
+
+**Falta un paso que solo puedes dar tu**, porque necesita permisos de administrador: abrir
+el puerto en el cortafuegos de Windows. Se hace una vez. En PowerShell **como
+administrador**:
+
+    New-NetFirewallRule -DisplayName "ComfyUI Exo (LAN)" -Direction Inbound `
+      -Protocol TCP -LocalPort 8188 -Action Allow -Profile Private `
+      -RemoteAddress LocalSubnet
+
+`-Profile Private` lo deja fuera de las redes marcadas como publicas, y `-RemoteAddress
+LocalSubnet` lo limita a tu propia red. Para quitarlo:
+`Remove-NetFirewallRule -DisplayName "ComfyUI Exo (LAN)"`.
+
+**Lo que hay que tener claro antes de abrirlo: ComfyUI no pide contrasena.** Quien alcance
+ese puerto puede generar, ver todo lo que hayas generado, subir archivos y lanzar flujos que
+leen y escriben en las carpetas de ComfyUI. En la red del taller o de casa es razonable; en
+una wifi compartida o abriendo el puerto en el router, no. Cuando no lo necesites, vuelve al
+lanzador de siempre.
+
+**En el movil.** La interfaz se adapta sola por debajo de 560 px: los botones pasan a ancho
+completo y con altura de dedo, la galeria a dos columnas, los atajos de teclado se ocultan y
+el visor ocupa media pantalla con la ficha debajo. Al subir una referencia, el telefono
+ofrece la camara o la galeria. Lo probado a 375x812: no hay desbordes ni scroll horizontal,
+y se puede generar, revisar, puntuar y escribir observaciones igual que en el PC.
+
+Las miniaturas de la galeria van comprimidas al vuelo (webp, calidad 70): **61 KB en vez de
+1,5 MB**, con lo que abrir la galeria entera pasa de 88 MB a 3,5 MB. Por wifi es la
+diferencia entre usable y no usable. El visor sigue mostrando el PNG completo, que es donde
+se miran los dedos.
+
+Lo que **no** cambia por estar en red: la GPU sigue siendo la de este PC, asi que generar
+desde el movil tarda lo mismo y ocupa la misma cola. Dos personas generando a la vez se
+turnan.
+
+---
+
 ## Si algo sale mal
 
 | Sintoma | Que hacer |
