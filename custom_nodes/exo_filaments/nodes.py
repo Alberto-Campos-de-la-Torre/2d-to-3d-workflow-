@@ -659,6 +659,25 @@ class ExoRevisarGrosor(IO.ComfyNode):
             f"zonas finas     {pct:.1f} % de la superficie\n"
             f"resultado       {estado}"
         )
+        # Saber que hay un 5 % de zonas finas no sirve de nada si no se sabe donde: no es
+        # lo mismo que esten en la peana, que se arregla engordandola, que en la cara.
+        # La altura de impresion es el eje Y, que es como viene la malla del generador.
+        if finas.any():
+            alturas = centros[indices][:, 1]
+            suelo, techo = float(vertices[:, 1].min()), float(vertices[:, 1].max())
+            alto = max(techo - suelo, 1e-9)
+            relativa = (alturas[finas] - suelo) / alto
+            peso = areas[finas]
+            total_fino = float(peso.sum()) or 1.0
+            bandas = [("abajo ", relativa < 1 / 3),
+                      ("medio ", (relativa >= 1 / 3) & (relativa < 2 / 3)),
+                      ("arriba", relativa >= 2 / 3)]
+            reparto = " · ".join(
+                "%s %.0f %%" % (nombre, float(peso[donde].sum()) / total_fino * 100)
+                for nombre, donde in bandas)
+            informe += (f"\ndonde estan     {reparto}"
+                        f"\n                entre {alturas[finas].min() - suelo:.0f} y "
+                        f"{alturas[finas].max() - suelo:.0f} mm de altura")
         if pct > aviso_pct:
             informe += ("\n\nPartes demasiado delgadas: subir la altura de la pieza, engordarlas\n"
                         "en Blender o rechazar el encargo (flores, hojas, aristas de papel).")
@@ -710,6 +729,41 @@ class ExoRevisarImprimible(IO.ComfyNode):
         texto = resumen(informe)
         return IO.NodeOutput(mesh, texto, bool(informe["apto"]),
                              float(informe["voladizo_pct"]), ui={"text": (texto,)})
+
+
+class ExoPresupuesto(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(
+            node_id="ExoPresupuesto",
+            display_name="Presupuesto (Exo)",
+            category="3d/exo filaments",
+            description=(
+                "Del peso de la pieza al precio: material, maquina, preparacion, mermas y "
+                "margen. Los numeros del negocio se leen de config_local.json, que no se "
+                "publica; si no los has puesto, avisa de que el precio es de ejemplo."
+            ),
+            inputs=[
+                IO.Float.Input("peso_g", default=0.0, min=0.0, max=100_000.0, step=1.0,
+                               tooltip="Enchufalo a la salida peso_g del informe de impresion."),
+                IO.Float.Input("soportes_pct", default=0.0, min=0.0, max=200.0, step=5.0,
+                               tooltip="Material extra que se tira en soportes. Con muchos "
+                                       "voladizos, 20-40 %% no es raro."),
+            ],
+            outputs=[
+                IO.String.Output("presupuesto"),
+                IO.Float.Output("precio"),
+            ],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(cls, peso_g, soportes_pct):
+        from .presupuesto import calcular, resumen
+
+        cuentas = calcular(float(peso_g), soportes_pct=float(soportes_pct))
+        texto = resumen(cuentas)
+        return IO.NodeOutput(texto, float(cuentas["precio"]), ui={"text": (texto,)})
 
 
 class ExoGuardarImpresion(IO.ComfyNode):
@@ -817,7 +871,7 @@ class ExtensionExoFilaments(ComfyExtension):
     async def get_node_list(self):
         return [ExoPromptIA, ExoRevisarImagen, ExoCorregirPrompt, ExoRevisarPieza, ExoSolidificar,
                 ExoPaletaFilamentos, ExoInformeImpresion, ExoRevisarGrosor,
-                ExoRevisarImprimible, ExoGuardarImpresion]
+                ExoRevisarImprimible, ExoPresupuesto, ExoGuardarImpresion]
 
 
 async def comfy_entrypoint() -> ExtensionExoFilaments:

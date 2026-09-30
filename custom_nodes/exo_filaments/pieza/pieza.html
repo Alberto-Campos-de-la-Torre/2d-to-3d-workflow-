@@ -106,6 +106,14 @@
     <div class="vistas" id="vistas"></div>
     <div id="informes"></div>
     <div class="archivos" id="archivos"></div>
+    <div id="caja-encargo" hidden style="margin-top:12px">
+      <label for="encargo">Guardar como encargo (nombre del cliente o del pedido)</label>
+      <input type="text" id="encargo" placeholder="Maria - funko de su perro">
+      <button id="guardar-encargo" style="margin-top:8px">Guardar encargo</button>
+      <p class="nota">Copia el STL, el OBJ, las vistas, la imagen de partida y todos los
+      informes a una carpeta con la fecha y ese nombre, para tenerlo junto cuando el
+      cliente pregunte dentro de tres semanas.</p>
+    </div>
   </section>
 </main>
 
@@ -223,11 +231,30 @@ function pintar(estado) {
     `<div class="informe"><h3>${i.titulo}</h3><pre>${i.texto.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))}</pre></div>`
   ).join("");
 
+  $("caja-encargo").hidden = !estado.archivos.length;
   $("archivos").innerHTML = estado.archivos.map((a) =>
     `<a href="/exo/pieza/descargar?ruta=${encodeURIComponent(a.ruta)}"><button>Descargar ${a.nombre}</button></a>`
   ).join("");
 }
 
+async function guardarEncargo() {
+  const nombre = $("encargo").value.trim();
+  if (!nombre) { mensaje("Ponle un nombre al encargo.", "error"); return; }
+  $("guardar-encargo").disabled = true;
+  try {
+    const r = await json("/exo/pieza/encargo", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: trabajo, nombre }),
+    });
+    mensaje(`Guardado en ${r.carpeta} (${r.archivos.length} archivos).`, "bien");
+  } catch (e) {
+    mensaje("No se pudo guardar: " + e.message, "error");
+  } finally {
+    $("guardar-encargo").disabled = false;
+  }
+}
+
+$("guardar-encargo").addEventListener("click", guardarEncargo);
 $("convertir").addEventListener("click", convertir);
 $("color").addEventListener("change", () => { $("caja-paleta").hidden = !$("color").checked; });
 cargar().catch((e) => mensaje("No se pudo cargar la lista de imágenes: " + e.message, "error"));

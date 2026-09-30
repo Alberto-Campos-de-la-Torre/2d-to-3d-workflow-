@@ -83,6 +83,9 @@ def construir(imagen, opciones):
         "relleno": float(opciones.get("relleno") or 15.0), "pared_mm": pared}}
     grafo["202"] = {"class_type": "ExoRevisarGrosor", "inputs": {
         "mesh": ["201", 0], "grosor_min_mm": pared, "aviso_pct": 5.0, "muestras": 4000}}
+    # El presupuesto va enchufado al peso que calcula el informe, no lo recalcula.
+    grafo["207"] = {"class_type": "ExoPresupuesto", "inputs": {
+        "peso_g": ["201", 2], "soportes_pct": float(opciones.get("soportes_pct") or 0.0)}}
     grafo["206"] = {"class_type": "ExoRevisarImprimible", "inputs": {
         "mesh": ["202", 0],
         "cama_x_mm": float(opciones.get("cama_x") or 350.0),
@@ -103,8 +106,8 @@ def construir(imagen, opciones):
 
 
 ETIQUETAS = {"201": "Informe de impresion", "202": "Grosor de paredes",
-             "206": "Se puede imprimir", "204": "Revision de la pieza",
-             "203": "Archivos guardados"}
+             "206": "Se puede imprimir", "207": "Presupuesto",
+             "204": "Revision de la pieza", "203": "Archivos guardados"}
 
 
 async def _convertir(id_trabajo, grafo):
@@ -237,6 +240,58 @@ async def estado_pieza(peticion):
     if estado is None:
         return web.json_response({"error": "no existe ese trabajo"}, status=404)
     return web.json_response({**estado, "segundos": round(time.time() - estado["inicio"])})
+
+
+@rutas.post("/exo/pieza/encargo")
+async def guardar_encargo(peticion):
+    """Recoge todo lo de un trabajo terminado en una carpeta con el nombre del cliente.
+
+    Hasta ahora los archivos de cada pieza se quedaban mezclados en output/3d/exo con los
+    de todas las demas. Aqui se copian a encargos\\<fecha>-<nombre>, junto con los
+    informes y el presupuesto, que es lo que hay que tener a mano cuando el cliente
+    pregunta por su pedido tres semanas despues.
+    """
+    import datetime
+    import re
+    import shutil
+
+    datos = await peticion.json()
+    estado = _trabajos.get(str(datos.get("id") or ""))
+    if estado is None:
+        return web.json_response({"error": "no existe ese trabajo"}, status=404)
+    if not estado.get("terminado") or estado.get("error"):
+        return web.json_response({"error": "el trabajo no ha terminado bien"}, status=400)
+
+    nombre = re.sub(r"[^\w\s-]", "", str(datos.get("nombre") or "sin nombre")).strip()[:60]
+    nombre = re.sub(r"\s+", "_", nombre) or "sin_nombre"
+    carpeta = (RAIZ / "encargos" /
+               ("%s-%s" % (datetime.date.today().isoformat(), nombre)))
+    carpeta.mkdir(parents=True, exist_ok=True)
+
+    copiados = []
+    for archivo in estado.get("archivos", []):
+        origen = _salida() / archivo["ruta"]
+        if origen.exists():
+            shutil.copy2(origen, carpeta / origen.name)
+            copiados.append(origen.name)
+    for vista in estado.get("vistas", []):
+        origen = _salida() / vista.get("subcarpeta", "") / vista["archivo"]
+        if origen.exists():
+            shutil.copy2(origen, carpeta / ("vistas_" + origen.name))
+            copiados.append("vistas_" + origen.name)
+    origen = Path(folder_paths.get_input_directory()) / estado.get("imagen", "")
+    if origen.exists():
+        shutil.copy2(origen, carpeta / ("origen" + origen.suffix))
+        copiados.append("origen" + origen.suffix)
+
+    partes = ["ENCARGO: %s" % nombre, "fecha: %s" % datetime.date.today().isoformat(),
+              "imagen de partida: %s" % estado.get("imagen", ""), ""]
+    for informe in estado.get("informes", []):
+        partes += ["== %s ==" % informe["titulo"], informe["texto"], ""]
+    (carpeta / "informe.txt").write_text("\n".join(partes), encoding="utf-8")
+    copiados.append("informe.txt")
+
+    return web.json_response({"carpeta": str(carpeta), "archivos": copiados})
 
 
 @rutas.get("/exo/pieza/descargar")

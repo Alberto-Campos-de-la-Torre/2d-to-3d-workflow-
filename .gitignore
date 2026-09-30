@@ -42,3 +42,8 @@ user/
 settings.json
 extra_model_paths.yaml
 revisiones.json
+
+# Encargos de clientes y registro del vigilante: datos del negocio, no van al repo.
+encargos/
+vigilante_log.txt
+comfy_log.txt

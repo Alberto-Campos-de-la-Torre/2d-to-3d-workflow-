@@ -462,6 +462,72 @@ de entrada, 0 de salida, solido cerrado.
 
 ---
 
+## Antes de mandarla a la impresora
+
+El informe de medidas dice que la malla esta cerrada y que las paredes dan el ancho. Eso no
+basta: la pieza puede no caber, estar llena de voladizos o caerse sola. El nodo **Revisar
+que se pueda imprimir (Exo)** mide las tres, con la pieza ya puesta como se va a imprimir, y
+sale en la pagina del movil como **"Se puede imprimir"**.
+
+| Dato | Que significa |
+|---|---|
+| `cabe` | Contra tu cama (350 x 350 x 350 por defecto, se cambia en la pagina). Si no cabe, dice a que altura habria que bajarla. Se supone que puedes girarla sobre la cama. |
+| `voladizos` | Superficie que mira hacia abajo mas de 45 grados. No cuenta lo apoyado en la cama, que se imprime contra el cristal. Por encima del 5 % hara falta soporte; por encima del 15 %, soportes por toda la pieza. |
+| `apoyo` | Cuantos mm2 tocan la cama y que parte de su sombra son. Poca huella = se despega o se cae. |
+| `estabilidad` | A cuantos mm del borde de la huella cae el centro de masa. **Negativo significa que vuelca sola.** |
+
+El angulo se puede subir si tu impresora refrigera bien. Validado contra formas de
+respuesta conocida (`scripts\pruebas\probar_imprimibilidad.py`): una esfera da 15,0 % de
+voladizo contra el 14,6 % que sale por geometria, y una torre inclinada sale con el centro
+de masa 19,6 mm **fuera** de la huella.
+
+El informe de grosor dice ahora **donde** estan las zonas finas, no solo cuantas: repartidas
+en tres alturas y con el tramo en mm. No es lo mismo que esten en la peana, que se arregla
+engordandola, que en la cara.
+
+### Presupuesto
+
+El nodo **Presupuesto (Exo)** convierte el peso en precio: material, maquina, preparacion,
+mermas y margen. Los numeros de tu negocio van en `config_local.json`, que **no se publica**:
+
+    "precio_filamento_kg": 25.0, "moneda": "USD", "coste_hora_maquina": 1.20,
+    "gramos_por_hora": 14.0, "preparacion": 3.00, "margen": 1.6, "fallos_pct": 8.0
+
+Mientras no los pongas, el presupuesto sale con los de ejemplo y **lo dice en el propio
+informe**, para que no se cuele un precio inventado en una factura. `fallos_pct` es el
+porcentaje de impresiones que se pierden: no es mala suerte, es un coste, y lo pagan las que
+salen bien.
+
+### Guardar el encargo
+
+Al terminar una pieza, en la pagina del movil hay un cuadro para ponerle nombre al encargo.
+Guarda el STL, el OBJ, las vistas, la imagen de partida y todos los informes en
+`encargos\<fecha>-<nombre>`, que es lo que hace falta tener a mano cuando el cliente
+pregunta tres semanas despues. Esa carpeta no se publica.
+
+## Mantenimiento
+
+**Limpiar las pruebas.** `scripts\limpiar.py` ensena que ocupan las salidas de prueba
+agrupadas y, con `--borrar`, las quita. Por defecto **no borra nada**: hay que pedirselo. No
+toca los modelos, ni `input\`, ni el repositorio, y respeta siempre los 5 archivos mas
+recientes de cada grupo y todo lo de los ultimos 7 dias (`--conservar` y `--dias`).
+
+    PY scripts\limpiar.py                  # solo mirar
+    PY scripts\limpiar.py --borrar         # borrar de verdad
+    PY scripts\limpiar.py --dias 30        # mas agresivo
+
+**Que ComfyUI se levante solo.** `scripts\vigilante.py` comprueba cada minuto que el
+servidor **responde**, no solo que el proceso existe: ya paso una vez que la consola entro
+en modo seleccion, Windows congelo el proceso y el puerto seguia abierto con el servidor
+muerto. Si no responde, mata lo que haya y arranca de nuevo, y lo apunta en
+`vigilante_log.txt`.
+
+    PY scripts\vigilante.py --lan          # vigilando, accesible en la red
+    PY scripts\vigilante.py --una-vez      # comprobar y salir (para el Programador de tareas)
+
+Para que arranque con el equipo, en el Programador de tareas de Windows: tarea nueva, al
+iniciar sesion, que ejecute `python_embeded\python.exe` con `scripts\vigilante.py --lan`.
+
 ## Si algo sale mal
 
 | Sintoma | Que hacer |
