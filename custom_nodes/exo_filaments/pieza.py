@@ -83,6 +83,13 @@ def construir(imagen, opciones):
         "relleno": float(opciones.get("relleno") or 15.0), "pared_mm": pared}}
     grafo["202"] = {"class_type": "ExoRevisarGrosor", "inputs": {
         "mesh": ["201", 0], "grosor_min_mm": pared, "aviso_pct": 5.0, "muestras": 4000}}
+    grafo["206"] = {"class_type": "ExoRevisarImprimible", "inputs": {
+        "mesh": ["202", 0],
+        "cama_x_mm": float(opciones.get("cama_x") or 350.0),
+        "cama_y_mm": float(opciones.get("cama_y") or 350.0),
+        "cama_z_mm": float(opciones.get("cama_z") or 350.0),
+        "angulo_voladizo": float(opciones.get("angulo_voladizo") or 45.0),
+        "poner_de_pie": True}}
     grafo["204"] = {"class_type": "ExoRevisarPieza", "inputs": {
         "mesh": ["202", 0], "descripcion": str(opciones.get("descripcion") or ""),
         "resolucion_vista": 448}}
@@ -96,7 +103,8 @@ def construir(imagen, opciones):
 
 
 ETIQUETAS = {"201": "Informe de impresion", "202": "Grosor de paredes",
-             "204": "Revision de la pieza", "203": "Archivos guardados"}
+             "206": "Se puede imprimir", "204": "Revision de la pieza",
+             "203": "Archivos guardados"}
 
 
 async def _convertir(id_trabajo, grafo):

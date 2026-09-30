@@ -84,6 +84,10 @@
       <input type="text" id="paleta">
       <p class="nota">Se reparten los colores de la pieza entre estos filamentos. Déjalo vacío para conservar el color original sin agrupar.</p>
     </div>
+    <div class="dos" style="margin-top:10px">
+      <div><label for="cama">Cama de la impresora (mm)</label><input type="text" id="cama" value="350 x 350 x 350"></div>
+      <div><label for="angulo">Ángulo sin soportes (grados)</label><input type="number" id="angulo" value="45" min="20" max="80" step="5"></div>
+    </div>
     <div style="margin-top:10px">
       <label for="descripcion">Qué debería ser (para la revisión)</label>
       <input type="text" id="descripcion" placeholder="un dragón sentado, figura de juguete">
@@ -142,6 +146,12 @@ function elegir(im, foto) {
   $("pista").textContent = "Con color tarda varios minutos: puedes cerrar el móvil y volver, el trabajo sigue en el PC.";
 }
 
+// "350 x 350 x 350", "350x350x350" o "350 350 350": se aceptan las tres.
+function medidasCama() {
+  const n = ($("cama").value.match(/\d+(?:[.,]\d+)?/g) || []).map((x) => +x.replace(",", "."));
+  return { cama_x: n[0] || 350, cama_y: n[1] || n[0] || 350, cama_z: n[2] || n[0] || 350 };
+}
+
 function mensaje(texto, clase) {
   $("mensajes").innerHTML = `<div class="aviso ${clase}">${texto}</div>`;
 }
@@ -170,6 +180,8 @@ async function convertir() {
         relleno: +$("relleno").value,
         pared: +$("pared").value,
         descripcion: $("descripcion").value.trim(),
+        ...medidasCama(),
+        angulo_voladizo: +$("angulo").value,
       }),
     });
     trabajo = r.id;

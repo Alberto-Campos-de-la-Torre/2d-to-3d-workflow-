@@ -665,6 +665,53 @@ class ExoRevisarGrosor(IO.ComfyNode):
         return IO.NodeOutput(mesh, informe, pct, ui={"text": (informe,)})
 
 
+class ExoRevisarImprimible(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(
+            node_id="ExoRevisarImprimible",
+            display_name="Revisar que se pueda imprimir (Exo)",
+            category="3d/exo filaments",
+            description=(
+                "Lo que no ve el informe de medidas: si cabe en la cama, cuanta superficie son "
+                "voladizos que van a necesitar soportes, cuanto apoya en la cama y si el centro "
+                "de masa cae dentro de esa huella o la pieza se cae sola. Ponlo DESPUES de "
+                "escalar a milimetros."
+            ),
+            inputs=[
+                IO.Mesh.Input("mesh"),
+                IO.Float.Input("cama_x_mm", default=350.0, min=50.0, max=2000.0, step=10.0),
+                IO.Float.Input("cama_y_mm", default=350.0, min=50.0, max=2000.0, step=10.0),
+                IO.Float.Input("cama_z_mm", default=350.0, min=50.0, max=2000.0, step=10.0),
+                IO.Float.Input("angulo_voladizo", default=45.0, min=20.0, max=80.0, step=5.0,
+                               tooltip="Inclinacion que tu impresora aguanta sin soportes. 45 grados "
+                                       "es lo normal; con refrigeracion buena se puede subir."),
+                IO.Boolean.Input("poner_de_pie", default=True,
+                                 tooltip="La malla viene con Y arriba y se imprime con Z arriba. "
+                                         "Quitalo solo si ya la giraste tu."),
+            ],
+            outputs=[
+                IO.Mesh.Output("mesh"),
+                IO.String.Output("informe"),
+                IO.Boolean.Output("apto"),
+                IO.Float.Output("voladizo_pct"),
+            ],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(cls, mesh, cama_x_mm, cama_y_mm, cama_z_mm, angulo_voladizo, poner_de_pie):
+        from .imprimibilidad import resumen, revisar
+
+        vertices, caras = _primera_malla(mesh)
+        informe = revisar(vertices.astype(np.float64), caras,
+                          cama=(float(cama_x_mm), float(cama_y_mm), float(cama_z_mm)),
+                          angulo=float(angulo_voladizo), ya_de_pie=not poner_de_pie)
+        texto = resumen(informe)
+        return IO.NodeOutput(mesh, texto, bool(informe["apto"]),
+                             float(informe["voladizo_pct"]), ui={"text": (texto,)})
+
+
 class ExoGuardarImpresion(IO.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -769,7 +816,8 @@ class ExtensionExoFilaments(ComfyExtension):
     @override
     async def get_node_list(self):
         return [ExoPromptIA, ExoRevisarImagen, ExoCorregirPrompt, ExoRevisarPieza, ExoSolidificar,
-                ExoPaletaFilamentos, ExoInformeImpresion, ExoRevisarGrosor, ExoGuardarImpresion]
+                ExoPaletaFilamentos, ExoInformeImpresion, ExoRevisarGrosor,
+                ExoRevisarImprimible, ExoGuardarImpresion]
 
 
 async def comfy_entrypoint() -> ExtensionExoFilaments:
