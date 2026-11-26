@@ -1,4 +1,4 @@
-﻿"""Deja una malla generada por IA lista para imprimir: cerrada, limpia y a escala.
+"""Deja una malla generada por IA lista para imprimir: cerrada, limpia y a escala.
 
   "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Blender\\blender.exe" -b -P scripts\\preparar_impresion.py -- <entrada.glb|stl> [opciones]
 

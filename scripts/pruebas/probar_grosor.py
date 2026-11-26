@@ -1,4 +1,4 @@
-﻿"""Valida el nodo de grosor contra piezas de medida conocida.
+"""Valida el nodo de grosor contra piezas de medida conocida.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\probar_grosor.py
 

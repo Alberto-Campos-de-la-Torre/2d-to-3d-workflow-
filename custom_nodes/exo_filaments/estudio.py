@@ -1,7 +1,7 @@
 """Estudio de imagen: pagina propia dentro de ComfyUI para generar con Qwen-Image 2.1
 (GGUF) y revisar los resultados.
 
-  http://127.0.0.1:8188/exo/estudio
+  http://localhost:8188/exo/estudio
 
 La generacion va por la API normal de ComfyUI (/prompt y el websocket); aqui solo
 estan las rutas que la API no trae: listar lo generado con sus ajustes (leidos del
@@ -135,7 +135,7 @@ async def _generar_y_esperar(grafo, tiempo_max=600):
     import aiohttp
 
     async with aiohttp.ClientSession() as sesion:
-        async with sesion.post("http://127.0.0.1:8188/prompt", json={"prompt": grafo}) as r:
+        async with sesion.post("http://localhost:8188/prompt", json={"prompt": grafo}) as r:
             respuesta = await r.json()
         if respuesta.get("node_errors"):
             raise RuntimeError(json.dumps(respuesta["node_errors"])[:400])
@@ -144,7 +144,7 @@ async def _generar_y_esperar(grafo, tiempo_max=600):
         limite = asyncio.get_event_loop().time() + tiempo_max
         while asyncio.get_event_loop().time() < limite:
             await asyncio.sleep(2)
-            async with sesion.get(f"http://127.0.0.1:8188/history/{pid}") as r:
+            async with sesion.get(f"http://localhost:8188/history/{pid}") as r:
                 historial = await r.json()
             if pid not in historial:
                 continue

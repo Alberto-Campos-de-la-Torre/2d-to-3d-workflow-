@@ -1,14 +1,14 @@
 {
- "_comentario": "Copia este archivo como config_local.json en la raiz y pon tus datos. config_local.json NO se publica (esta en .gitignore), asi ni la direccion de tu red ni los numeros de tu negocio salen de tu equipo.",
- "ia_url": "http://127.0.0.1:8080/v1",
- "ia_modelo": "",
- "ia_temperatura": 0.8,
- "_precios": "Cambialos por los tuyos o el presupuesto no vale para cobrar.",
- "precio_filamento_kg": 25.0,
- "moneda": "USD",
- "coste_hora_maquina": 1.2,
- "gramos_por_hora": 14.0,
- "preparacion": 3.0,
- "margen": 1.6,
- "fallos_pct": 8.0
+  "_comentario": "Copia este archivo como config_local.json en la raiz y pon tus datos. config_local.json NO se publica (esta en .gitignore), asi ni la direccion de tu red ni los numeros de tu negocio salen de tu equipo.",
+  "ia_url": "http://localhost:8080/v1",
+  "ia_modelo": "",
+  "ia_temperatura": 0.8,
+  "_precios": "Cambialos por los tuyos o el presupuesto no vale para cobrar.",
+  "precio_filamento_kg": 25.0,
+  "moneda": "USD",
+  "coste_hora_maquina": 1.2,
+  "gramos_por_hora": 14.0,
+  "preparacion": 3.0,
+  "margen": 1.6,
+  "fallos_pct": 8.0
 }

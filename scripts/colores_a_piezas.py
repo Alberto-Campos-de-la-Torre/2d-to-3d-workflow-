@@ -1,4 +1,4 @@
-﻿"""Convierte un modelo con color en piezas separadas por filamento (impresion multicolor).
+"""Convierte un modelo con color en piezas separadas por filamento (impresion multicolor).
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\colores_a_piezas.py <modelo.glb> [opciones]
 

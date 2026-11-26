@@ -23,7 +23,7 @@ from pathlib import Path
 
 RAIZ = Path(r"D:\AI3D")
 REGISTRO = RAIZ / "vigilante_log.txt"
-DIRECCION = "http://127.0.0.1:8188"
+DIRECCION = "http://localhost:8188"
 ARRANQUE = {False: RAIZ / "Iniciar_ComfyUI_3D.bat", True: RAIZ / "Iniciar_ComfyUI_LAN.bat"}
 
 

@@ -72,3 +72,6 @@ Con ComfyUI arrancado:
 
     python scripts\pruebas\probar_grosor.py        # valida la medicion de pared
     python scripts\pruebas\probar_solidificar.py   # valida el cerrado solido
+
+
+Para cortes cerrados: `trimesh==5.1.0` y `manifold3d==3.5.4` (incluidos en `custom_nodes/exo_filaments/requirements.txt`). Instalar en el Python que ejecuta ComfyUI.

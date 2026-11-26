@@ -38,7 +38,7 @@ PREGUNTA = (
 )
 
 PESOS = {"no_coincide": 3, "partes_faltantes": 3, "deforme": 3, "espalda_mal": 2,
-         "no_se_sostiene": 2, "hueca": 3}
+         "no_se_sostiene": 2, "hueca": 3, "color_no_coincide": 3, "textura_corrupta": 3}
 
 # Respuestas que significan "sin defectos" y no deben contarse como uno.
 NO_ES_DEFECTO = {"ninguno", "ninguna", "none", "n/a", "na", "sin defectos", "no hay",
@@ -98,7 +98,7 @@ def medir_llenado(mesh):
     return round(solido / caja, 3)
 
 
-def revisar_pieza(mesh, descripcion="", lado=512):
+def revisar_pieza(mesh, descripcion="", lado=512, referencia=None):
     """Devuelve (informe, hoja de vistas). 'descripcion' es lo que se pidio, para comparar."""
     hoja = hoja_de_vistas(mesh, lado)
     llenado = medir_llenado(mesh)
@@ -107,7 +107,26 @@ def revisar_pieza(mesh, descripcion="", lado=512):
     if descripcion.strip():
         pregunta += f"\n\nLo que se pidio era: {descripcion.strip()}"
 
-    texto, aviso = _preguntar(hoja, pregunta, tokens=900, temperatura=0.2)
+    consulta = hoja
+    if referencia is not None:
+        from PIL import Image, ImageOps, ImageDraw
+        consulta=Image.new("RGB",(lado*3,lado*2+36),(122,130,144))
+        consulta.paste(ImageOps.contain(referencia.convert("RGB"),(lado,lado*2)),(0,36))
+        consulta.paste(hoja,(lado,36))
+        draw=ImageDraw.Draw(consulta)
+        draw.text((12,10),"REFERENCIA: imagen original",fill="white")
+        draw.text((lado+12,10),"RESULTADO 3D: cuatro vistas",fill="white")
+        pregunta += ("\nA la izquierda esta la REFERENCIA original; a la derecha, el RESULTADO 3D. "
+            "Compara los colores por region visible: cara, orejas, cuello, manos, cabello, ropa y base. "
+            "No inventes un tono de piel esperado: usa la referencia. Tolera diferencias moderadas de "
+            "iluminacion y sombras. Marca color_no_coincide solo si cambia la familia de color o se "
+            "oscurece drasticamente una region que era clara. Busca especialmente una cara roja/negra "
+            "cuando la referencia y las manos tienen piel clara. Marca textura_corrupta si hay manchas, "
+            "colores de ropa trasladados a la piel, costuras rotas o arrastre de colores. "
+            "No juzgues fidelidad de colores que la referencia no muestra por detras. "
+            "Describe region, color esperado y observado. Incluye en el JSON dos booleanos adicionales: "
+            "color_no_coincide y textura_corrupta. Si no puedes decidir, usa null, no false.")
+    texto, aviso = _preguntar(consulta, pregunta, tokens=1200, temperatura=0.2)
     if aviso:
         return {"avisos": [aviso], "defectos": [], "puntuacion": None, "apto": None}, hoja
 
@@ -130,6 +149,10 @@ def revisar_pieza(mesh, descripcion="", lado=512):
     if datos.get("se_sostiene") is False:
         marcar("no_se_sostiene", "no se sostiene de pie: hara falta base o soportes")
 
+    if referencia is not None:
+        for clave in ("color_no_coincide", "textura_corrupta"):
+            if datos.get(clave) is True:
+                marcar(clave, "El color/textura no corresponde a la referencia: " + clave)
     # La lista en texto manda: en las pruebas las banderas se quedaban cortas.
     for problema in (datos.get("defectos") or []):
         texto_problema = str(problema).strip()
@@ -144,14 +167,18 @@ def revisar_pieza(mesh, descripcion="", lado=512):
     if llenado < LLENADO_MINIMO:
         marcar("hueca", f"parece hueca: ocupa {llenado} de su caja (gastara poco material)")
 
+    avisos=[]
+    if referencia is not None and any(not isinstance(datos.get(k),bool) for k in ("color_no_coincide","textura_corrupta")):
+        avisos.append("La IA no dio un veredicto completo sobre el color de la referencia")
     informe = {
         "que_parece": datos.get("que_parece", ""),
+        "revision_color": {k:datos.get(k) for k in ("color_no_coincide","textura_corrupta")} if referencia is not None else None,
         "llenado": llenado,
         "defectos": defectos,
         "detalle": detalle,
         "puntuacion": round(10.0 - sum(PESOS.get(d, 1) for d in defectos), 1),
-        "apto": not defectos,
-        "avisos": [],
+        "apto": (not defectos) if not avisos else None,
+        "avisos": avisos,
         "descripcion": descripcion,
     }
     return informe, hoja

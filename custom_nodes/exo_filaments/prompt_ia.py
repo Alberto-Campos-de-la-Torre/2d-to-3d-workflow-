@@ -16,7 +16,7 @@ from pathlib import Path
 
 RAIZ = Path(r'D:\AI3D')   # donde vive config_local.json
 CONFIG = RAIZ / "config_local.json"
-POR_DEFECTO = {"ia_url": "http://127.0.0.1:8080/v1", "ia_modelo": "", "ia_temperatura": 0.8}
+POR_DEFECTO = {"ia_url": "http://localhost:8080/v1", "ia_modelo": "", "ia_temperatura": 0.8}
 
 # Lo aprendido midiendo 10 piezas reales: el generador debe entregar un objeto entero,
 # centrado y sobre fondo liso, o la parte 3D fabrica geometria de la sombra y del fondo.

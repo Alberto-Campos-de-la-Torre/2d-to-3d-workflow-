@@ -1,0 +1,5 @@
+scipy
+trimesh
+manifold3d
+rtree
+scikit-image==0.26.0

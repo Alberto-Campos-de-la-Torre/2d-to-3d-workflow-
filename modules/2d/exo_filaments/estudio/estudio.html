@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estudio Qwen · Exo</title>
+<style>
+  :root {
+    --fondo: #121315; --panel: #1b1d20; --panel2: #23262a; --borde: #33373d;
+    --texto: #e6e7e9; --suave: #9aa0a8; --acento: #e0a526; --acento-t: #1a1407;
+    --bien: #3fb27f; --mal: #e0584f; --info: #5b9bd5;
+    --radio: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--fondo); color: var(--texto);
+    font: 13px/1.45 system-ui, "Segoe UI", sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { background: var(--panel2); border: 1px solid var(--borde); border-radius: 6px;
+    padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: #555b63; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primario { background: var(--acento); color: var(--acento-t); border-color: var(--acento); font-weight: 650; }
+  button.activo { border-color: var(--acento); color: var(--acento); }
+  input[type=text], input[type=number], select, textarea {
+    background: #0e0f11; border: 1px solid var(--borde); border-radius: 6px; padding: 6px 8px; width: 100%; }
+  textarea { resize: vertical; }
+  label { display: block; font-size: 11px; color: var(--suave); margin: 0 0 4px; text-transform: uppercase; letter-spacing: .04em; }
+
+  .app { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+  aside { background: var(--panel); border-right: 1px solid var(--borde); overflow-y: auto; padding: 14px;
+    display: flex; flex-direction: column; gap: 12px; }
+  main { display: flex; flex-direction: column; min-width: 0; }
+  h1 { font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  h1 small { font-weight: 400; color: var(--suave); font-size: 11px; }
+  .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Fila de controles sueltos (boton + etiqueta + selector). En rejilla de dos
+     columnas cada etiqueta acababa separada de su selector al estrecharse. */
+  .controles { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .fila3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips button { padding: 4px 8px; font-size: 12px; }
+  .nota { font-size: 11px; color: var(--suave); margin: 0; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+  details summary { cursor: pointer; color: var(--suave); font-size: 12px; }
+  details[open] summary { margin-bottom: 8px; }
+  .ref { display: flex; gap: 8px; align-items: center; }
+  .ref img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--borde); }
+
+  .cola { background: var(--panel2); border-radius: var(--radio); padding: 10px; display: none; flex-direction: column; gap: 6px; }
+  .cola.visible { display: flex; }
+  .barra { height: 6px; background: #0e0f11; border-radius: 3px; overflow: hidden; }
+  .barra > div { height: 100%; width: 0; background: var(--acento); transition: width .2s; }
+
+  .herramientas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px;
+    border-bottom: 1px solid var(--borde); background: var(--panel); }
+  .herramientas input[type=text] { width: 220px; }
+  .herramientas select { width: auto; }
+  .contador { color: var(--suave); font-size: 12px; margin-left: auto; }
+  .rejilla { flex: 1; overflow-y: auto; padding: 14px; display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-content: start; }
+  .tarjeta { position: relative; background: var(--panel); border: 2px solid transparent; border-radius: var(--radio);
+    overflow: hidden; cursor: pointer; }
+  .tarjeta:hover { border-color: #444a52; }
+  .tarjeta.elegida { border-color: var(--info); }
+  .tarjeta img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #0b0c0d; }
+  .tarjeta .pie { padding: 6px 8px; font-size: 11px; color: var(--suave); display: flex; justify-content: space-between; gap: 6px; }
+  .tarjeta .pie span:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .sello { position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+  .sello.buena { background: var(--bien); color: #04140c; }
+  .sello.descartada { background: var(--mal); color: #1a0504; }
+  .tarjeta.descartada img { opacity: .4; }
+  .estrellas-mini { position: absolute; top: 6px; right: 6px; background: #000a; color: var(--acento); font-size: 11px;
+    padding: 1px 6px; border-radius: 10px; }
+  .vacio { grid-column: 1 / -1; text-align: center; color: var(--suave); padding: 60px 20px; }
+  .fantasma { aspect-ratio: 1; display: grid; place-items: center; background: repeating-linear-gradient(45deg,#1b1d20 0 10px,#202327 10px 20px);
+    color: var(--suave); font-size: 12px; }
+
+  .visor { position: fixed; inset: 0; background: #000d; display: none; z-index: 10; }
+  .visor.abierto { display: grid; grid-template-columns: 1fr 360px; }
+  .lienzo { position: relative; display: grid; place-items: center; overflow: hidden; padding: 16px; min-height: 0; }
+  .lienzo img { max-width: 100%; max-height: calc(100vh - 32px); object-fit: contain; cursor: zoom-in; }
+  .lienzo.zoom { overflow: auto; place-items: start; }
+  .lienzo.zoom img { max-width: none; max-height: none; cursor: zoom-out; }
+  .flecha { position: absolute; top: 50%; transform: translateY(-50%); background: #0008; border: 0; font-size: 22px; padding: 10px 14px; }
+  .flecha.izq { left: 10px; } .flecha.der { right: 10px; }
+  .ficha { background: var(--panel); border-left: 1px solid var(--borde); overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px; }
+  .ficha .prompt { white-space: pre-wrap; background: #0e0f11; border-radius: 6px; padding: 8px; max-height: 180px; overflow-y: auto; font-size: 12px; }
+  .datos { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+  .datos dt { color: var(--suave); } .datos dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-all; }
+  .estrellas { display: flex; gap: 2px; }
+  .estrellas button { background: none; border: 0; font-size: 22px; padding: 0 2px; color: #4a4f56; }
+  .estrellas button.on { color: var(--acento); }
+  .veredicto { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .veredicto .buena.activo { background: var(--bien); color: #04140c; border-color: var(--bien); }
+  .veredicto .descartada.activo { background: var(--mal); color: #1a0504; border-color: var(--mal); }
+  .acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .atajos { font-size: 11px; color: var(--suave); }
+  kbd { background: var(--panel2); border: 1px solid var(--borde); border-radius: 4px; padding: 0 4px; font-size: 10px; }
+  .cerrar { position: absolute; top: 10px; right: 10px; z-index: 2; }
+
+  .comparador { position: fixed; inset: 0; background: #000e; z-index: 11; display: none; flex-direction: column; }
+  .comparador.abierto { display: flex; }
+  .comparador .cab { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--panel); }
+  .comparador .lados { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; min-height: 0; }
+  .lado { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .lado img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
+  .lado .datos { background: var(--panel); padding: 8px; border-radius: 6px; }
+  .distinto { color: var(--acento); font-weight: 650; }
+
+  .aviso { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--borde);
+    padding: 8px 14px; border-radius: 8px; z-index: 20; display: none; max-width: 90vw; }
+  .aviso.visible { display: block; }
+  .aviso.error { border-color: var(--mal); }
+
+  @media (max-width: 800px) {
+    .app { grid-template-columns: 1fr; height: auto; }
+    aside { border-right: 0; border-bottom: 1px solid var(--borde); }
+    .rejilla { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .visor.abierto { grid-template-columns: 1fr; grid-template-rows: 60vh auto; overflow-y: auto; }
+    .herramientas input[type=text] { width: 100%; }
+  }
+  /* Movil: se maneja con el dedo, no con el raton. */
+  @media (max-width: 560px) {
+    /* 16px es el minimo que evita que iOS haga zoom solo al tocar un campo. */
+    input, select, textarea, button { font-size: 16px; }
+    button, select { min-height: 42px; }
+    .acciones button, .veredicto button { min-height: 46px; }
+    .chips button { min-height: 40px; padding: 8px 12px; }
+    .controles { gap: 8px; }
+    .controles button { flex: 1 1 100%; }
+    .fila3 { grid-template-columns: 1fr 1fr; }
+    .rejilla { grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
+    /* El visor a pantalla completa: en el movil es donde se mira y se decide. */
+    .visor.abierto { grid-template-rows: 52vh auto; }
+    .lienzo { padding: 8px; }
+    .lienzo img { max-height: 52vh; }
+    .atajos { display: none; }   /* no hay teclado que atajar */
+    .comparador .lados { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>Estudio Qwen-Image 2.1 <small id="estado-servidor">conectando…</small>
+      <a href="/exo/pieza" style="font-size:13px; font-weight:400; margin-left:8px">Imagen → pieza 3D →</a></h1>
+
+    <div>
+      <label for="prompt">Qué quieres ver</label>
+      <textarea id="prompt" rows="6" placeholder="Figura de un dragón pequeño sentado, estilo juguete de vinilo, fondo liso…"></textarea>
+      <div class="controles" style="margin-top:6px">
+        <button id="escribir-ia" title="Convierte lo que hay escrito en un prompt completo, con tu IA local">Escribir con IA</button>
+        <button id="deshacer-ia" hidden>Deshacer</button>
+        <small id="ia-estado" style="opacity:.7"></small>
+      </div>
+    </div>
+    <div class="controles" style="margin:4px 0 2px">
+      <button id="hasta-bien" title="Genera, revisa la imagen y corrige el prompt hasta que salga sin defectos">Generar hasta que salga bien</button>
+      <label for="intentos-bucle" style="opacity:.8">intentos</label>
+      <select id="intentos-bucle" style="width:64px"><option>2</option><option selected>3</option><option>4</option></select>
+      <label for="ciclos-bucle" style="opacity:.8" title="Veces que insiste en cada pregunta de anatomia cuando la imagen sale limpia">miradas</label>
+      <select id="ciclos-bucle" style="width:64px"><option>1</option><option selected>2</option><option>3</option></select>
+    </div>
+    <div id="tira-intentos" hidden style="display:flex; flex-direction:column; gap:6px; margin:4px 0 8px"></div>
+
+    <label class="check"><input type="checkbox" id="transparente"> Fondo transparente (PNG con canal alfa)</label>
+    <label class="check"><input type="checkbox" id="para3d"> <b>Esta imagen se va a imprimir en 3D</b></label>
+    <p class="nota" style="margin:-2px 0 8px 22px">Cambia las tres cosas a la vez: la IA escribe el prompt con las reglas de la conversion (un objeto entero, centrado, fondo liso), se anaden esas mismas condiciones al generar, y la revision exige que la pieza se pueda imprimir. Sin marcar es una imagen normal: solo se buscan anatomia mal resuelta, recortes, marcas de agua y encuadre, y no te reprochara partes finas, cristales, varios objetos ni un fondo con escenario.</p>
+
+    <div>
+      <label>Formato</label>
+      <div class="chips" id="formatos"></div>
+    </div>
+    <div class="fila">
+      <div><label for="mp">Megapíxeles</label>
+        <select id="mp"><option value="1">1 MP (rápido)</option><option value="1.5">1,5 MP</option><option value="2.25">2,25 MP</option><option value="4">4 MP (2K nativo)</option></select></div>
+      <div><label>Tamaño</label><div id="tamano" style="padding:6px 0; font-variant-numeric: tabular-nums;"></div></div>
+    </div>
+
+    <div class="fila3">
+      <div><label for="pasos">Pasos</label><input type="number" id="pasos" value="25" min="1" max="100"></div>
+      <div><label for="cfg">CFG</label><input type="number" id="cfg" value="1" min="1" max="10" step="0.5"></div>
+      <div><label for="variantes">Variantes</label><input type="number" id="variantes" value="1" min="1" max="16"></div>
+    </div>
+    <div class="fila">
+      <div><label for="semilla">Semilla</label><input type="number" id="semilla" value="0" min="0"></div>
+      <label class="check" style="align-self:end; padding-bottom:6px;"><input type="checkbox" id="aleatoria" checked> Aleatoria</label>
+    </div>
+
+    <div>
+      <label>Imágenes de referencia (modo edición)</label>
+      <div class="ref">
+        <img id="ref-mini-1" alt="" hidden>
+        <input type="file" id="ref-archivo-1" accept="image/*" style="flex:1; min-width:0;">
+        <button id="ref-quitar-1" hidden title="Quitar referencia 1">×</button>
+      </div>
+      <div class="ref" style="margin-top:6px">
+        <img id="ref-mini-2" alt="" hidden>
+        <input type="file" id="ref-archivo-2" accept="image/*" style="flex:1; min-width:0;">
+        <button id="ref-quitar-2" hidden title="Quitar referencia 2">×</button>
+      </div>
+      <p class="nota" id="ref-nota">Opcional. Con una referencia, el prompt describe el cambio («quita el fondo», «hazlo en PLA rojo»…). Con dos, <b>el objeto sale siempre de la referencia 1</b> y la 2 solo presta atributos <b>sin cuerpo</b>: color, patrón, material, estilo, fondo o la expresión de la cara. Nómbralos en concreto («amarillo brillante»): pedir «los colores de la segunda» a secas no suele hacer nada.<br>Para una <b>pose, una acción, una escena o sustituir un objeto por otro</b>, describe la condición con palabras y <b>quita la referencia 2</b>: si se queda cargada, su sujeto se apodera de la escena y tu objeto acaba de decorado. «Escribir con IA» ya lo redacta así, y el bucle la suelta solo al corregir. El tamaño sale de la referencia 1.</p>
+    </div>
+
+    <details>
+      <summary>Avanzado</summary>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div><label for="negativo">Prompt negativo (solo cuenta con CFG &gt; 1)</label><textarea id="negativo" rows="2"></textarea></div>
+        <div class="fila">
+          <div><label for="sampler">Sampler</label><select id="sampler"></select></div>
+          <div><label for="scheduler">Scheduler</label><select id="scheduler"></select></div>
+        </div>
+        <div><label for="modelo">Modelo (GGUF)</label><select id="modelo"></select></div>
+        <div><label for="codificador">Codificador de texto</label><select id="codificador"></select></div>
+        <div><label for="vae">VAE</label><select id="vae"></select></div>
+      </div>
+    </details>
+
+    <button class="primario" id="generar">Generar <kbd style="background:#0002;border-color:#0003">Ctrl+Enter</kbd></button>
+
+    <div class="cola" id="cola">
+      <div style="display:flex; justify-content:space-between;"><span id="cola-texto">En cola</span><button id="cancelar" style="padding:2px 8px; font-size:12px;">Cancelar</button></div>
+      <div class="barra"><div id="cola-barra"></div></div>
+    </div>
+    <p class="nota">La primera generación tarda más: carga el modelo (≈ 7,6 GB) y el codificador en memoria.</p>
+  </aside>
+
+  <main>
+    <div class="herramientas">
+      <div class="chips" id="filtros"></div>
+      <select id="min-estrellas" title="Puntuación mínima">
+        <option value="0">Cualquier nota</option><option value="3">★ 3 o más</option><option value="4">★ 4 o más</option><option value="5">★ 5</option>
+      </select>
+      <select id="orden"><option value="fecha">Más recientes</option><option value="estrellas">Mejor puntuadas</option></select>
+      <input type="text" id="buscar" placeholder="Buscar en los prompts…">
+      <button id="comparar" title="Elige dos imágenes y pulsa para verlas lado a lado">Comparar (0/2)</button>
+      <span class="contador" id="contador"></span>
+    </div>
+    <div class="rejilla" id="rejilla"></div>
+  </main>
+</div>
+
+<div class="visor" id="visor">
+  <div class="lienzo" id="lienzo">
+    <button class="flecha izq" id="anterior" title="Anterior (←)">‹</button>
+    <img id="visor-img" alt="">
+    <button class="flecha der" id="siguiente" title="Siguiente (→)">›</button>
+  </div>
+  <div class="ficha">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong id="visor-nombre" style="font-size:12px; word-break:break-all;"></strong>
+      <button id="visor-cerrar" title="Cerrar (Esc)">✕</button>
+    </div>
+    <div>
+      <label>Veredicto</label>
+      <div class="veredicto">
+        <button class="buena" data-estado="buena">✓ Buena</button>
+        <button data-estado="">Sin revisar</button>
+        <button class="descartada" data-estado="descartada">✗ Descartar</button>
+      </div>
+    </div>
+    <div><label>Puntuación</label><div class="estrellas" id="estrellas"></div></div>
+    <div><label for="nota">Notas</label><textarea id="nota" rows="3" placeholder="Qué falla, qué sirve, para qué cliente…"></textarea></div>
+    <div><label>Prompt</label><div class="prompt" id="visor-prompt"></div></div>
+    <dl class="datos" id="visor-datos"></dl>
+    <div style="margin:8px 0">
+      <label for="observaciones">¿Qué le falla a esta imagen?</label>
+      <textarea id="observaciones" rows="3" placeholder="A la niña de la izquierda le sale un brazo que no se conecta a nadie. El texto de la camiseta no se lee."></textarea>
+      <div class="controles" style="margin-top:6px">
+        <button id="corregir-obs" title="La IA mira la imagen y tu comentario, y reescribe el prompt">Corregir el prompt con esto</button>
+        <small id="obs-estado" style="opacity:.7"></small>
+      </div>
+      <p class="nota">Escríbelo con tus palabras, como se lo dirías a alguien. La IA ve la imagen
+      mientras lo lee, así que puedes señalar sitios («la mano de la derecha», «el fondo de arriba»).
+      Lo que no se arregla con palabras —manos, dedos, extremidades— lo manda al prompt negativo y
+      cambia la semilla. Al generar con <b>«hasta que salga bien»</b>, esto se tiene en cuenta en
+      todas las vueltas, no solo en la primera.</p>
+    </div>
+    <div class="acciones">
+      <button id="reusar" title="Carga estos ajustes en el formulario (R)">Reusar ajustes</button>
+      <button id="variar" title="Mismo prompt, otras 4 semillas (V)">4 variantes</button>
+      <button id="editar" title="Usarla como referencia para editarla (E)">Editar esta</button>
+      <button id="a3d" title="Copia a input/ para el flujo imagen → 3D">Enviar a 3D</button>
+      <a id="descargar" download><button style="width:100%">Descargar</button></a>
+      <button id="elegir" title="Añadir a la comparación (C)">Comparar</button>
+    </div>
+    <p class="atajos"><kbd>←</kbd><kbd>→</kbd> navegar · <kbd>B</kbd> buena · <kbd>X</kbd> descartar · <kbd>U</kbd> sin revisar · <kbd>1</kbd>–<kbd>5</kbd> nota · <kbd>clic</kbd> zoom 100 %</p>
+  </div>
+</div>
+
+<div class="comparador" id="comparador">
+  <div class="cab"><strong>Comparación</strong><button id="comparador-cerrar">Cerrar (Esc)</button></div>
+  <div class="lados" id="lados"></div>
+</div>
+
+<div class="aviso" id="aviso"></div>
+
+<script>
+"use strict";
+const CARPETA = "qwen21";
+const CLIENTE = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+const FORMATOS = [
+  ["1:1", 1, 1], ["4:3", 4, 3], ["3:4", 3, 4], ["3:2", 3, 2], ["2:3", 2, 3], ["16:9", 16, 9], ["9:16", 9, 16],
+];
+const FILTROS = [["todas", "Todas"], ["sin", "Sin revisar"], ["buena", "Buenas"], ["descartada", "Descartadas"]];
+
+const $ = (id) => document.getElementById(id);
+const estado = {
+  imagenes: [], revisiones: {}, filtro: "todas", formato: "1:1",
+  visibles: [], indice: -1, comparar: [],
+  trabajos: new Map(),   // prompt_id -> {inicio, total, hechas}
+  inicios: new Map(),    // prompt_id -> instante de execution_start (puede llegar antes que la respuesta de /prompt)
+  refImagenes: [null, null],   // nombres en input/ de las referencias (hasta 2)
+};
+
+// ---------- utilidades ----------
+function aviso(texto, error = false) {
+  const a = $("aviso");
+  a.textContent = texto;
+  a.className = "aviso visible" + (error ? " error" : "");
+  clearTimeout(aviso.t);
+  aviso.t = setTimeout(() => (a.className = "aviso"), error ? 7000 : 3000);
+}
+function urlImagen(nombre) {
+  return `/view?filename=${encodeURIComponent(nombre)}&subfolder=${CARPETA}&type=output`;
+}
+// Para la galería y el comparador: ComfyUI reconvierte al vuelo y una miniatura pasa de
+// 1,5 MB a 63 KB. Con 59 imágenes eso es 88 MB contra 3,7 MB, que por wifi y desde el
+// móvil es la diferencia entre usable y no usable. El visor sigue a resolución completa,
+// que es donde se miran los dedos.
+function urlMiniatura(nombre) {
+  return urlImagen(nombre) + "&preview=webp;70";
+}
+async function json(url, opciones) {
+  const r = await fetch(url, opciones);
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+function post(url, datos) {
+  return json(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) });
+}
+function semillaAleatoria() { return Math.floor(Math.random() * 2 ** 48); }
+function tamano() {
+  const [, a, b] = FORMATOS.find((f) => f[0] === estado.formato);
+  const px = parseFloat($("mp").value) * 1024 * 1024;
+  const w = Math.round(Math.sqrt(px * a / b) / 32) * 32;
+  const h = Math.round(Math.sqrt(px * b / a) / 32) * 32;
+  return [w, h];
+}
+function pintarTamano() { const [w, h] = tamano(); $("tamano").textContent = `${w} × ${h}`; }
+function rellenar(select, opciones, preferida) {
+  select.innerHTML = "";
+  for (const o of opciones) select.add(new Option(o, o));
+  const elegida = opciones.find((o) => preferida && preferida.test(o));
+  if (elegida) select.value = elegida;
+}
+
+// ---------- formulario ----------
+function construirFormulario() {
+  for (const [nombre] of FORMATOS) {
+    const b = document.createElement("button");
+    b.textContent = nombre;
+    b.addEventListener("click", () => { estado.formato = nombre; marcarFormato(); pintarTamano(); });
+    $("formatos").appendChild(b);
+  }
+  marcarFormato();
+  pintarTamano();
+  $("mp").addEventListener("change", pintarTamano);
+  $("aleatoria").addEventListener("change", () => ($("semilla").disabled = $("aleatoria").checked));
+  $("semilla").disabled = true;
+  $("generar").addEventListener("click", () => generar());
+  $("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.ctrlKey) generar(); });
+  $("cancelar").addEventListener("click", cancelar);
+  for (const i of [1, 2]) {
+    $(`ref-archivo-${i}`).addEventListener("change", () => subirReferencia(i));
+    $(`ref-quitar-${i}`).addEventListener("click", () => ponerReferencia(null, i));
+  }
+  $("escribir-ia").addEventListener("click", escribirConIA);
+  $("corregir-obs").addEventListener("click", corregirConObservacion);
+  $("deshacer-ia").addEventListener("click", deshacerIA);
+  $("hasta-bien").addEventListener("click", generarHastaQueSalgaBien);
+}
+
+// ---------- bucle: generar, revisar y corregir ----------
+async function generarHastaQueSalgaBien() {
+  if (!$("prompt").value.trim()) { aviso("Escribe primero qué quieres generar."); $("prompt").focus(); return; }
+  const boton = $("hasta-bien");
+  boton.disabled = true;
+  $("generar").disabled = true;
+  pintarIntentos([], 0, "arrancando…");
+  try {
+    const semilla = $("aleatoria").checked ? semillaAleatoria() : +$("semilla").value;
+    const r = await post("/exo/estudio/bucle", {
+      grafo: grafo(semilla),
+      intentos: +$("intentos-bucle").value,
+      // Decide con que criterio se revisa: con 3D se exige objeto entero, macizo y opaco.
+      para3d: $("para3d").checked,
+      // Veces que insiste en cada pregunta de anatomia si la imagen sale limpia.
+      ciclos: +$("ciclos-bucle").value,
+      // Lo que tú viste mal en una imagen anterior: pesa más que lo que vea el crítico.
+      observaciones: $("observaciones").value.trim(),
+    });
+    // Se consulta el progreso cada 2 s: cada vuelta son ~25 s de imagen y ~10 s de revisión.
+    let estado;
+    do {
+      await new Promise((r) => setTimeout(r, 2000));
+      estado = await (await fetch(`/exo/estudio/bucle/${r.id}`)).json();
+      pintarIntentos(estado.historial, estado.intento,
+        estado.terminado ? (estado.para3d ? "revisado para imprimir en 3D" : "revisado como imagen")
+                         : "generando…");
+    } while (!estado.terminado);
+
+    if (estado.error) aviso("El bucle se detuvo: " + estado.error, true);
+    else if (estado.mejor) {
+      $("prompt").value = estado.mejor.prompt;
+      aviso(estado.mejor.defectos.length
+        ? `Mejor intento: ${estado.mejor.puntuacion}/10, aún con ${estado.mejor.defectos.join(", ")}.`
+        : `Listo a la ${estado.historial.length}ª: sin defectos (${estado.mejor.puntuacion}/10).`);
+    }
+    pintarGaleria();
+  } catch (e) {
+    aviso("No se pudo completar el bucle: " + e.message, true);
+  } finally {
+    boton.disabled = false;
+    $("generar").disabled = false;
+  }
+}
+
+function pintarIntentos(historial, enCurso, nota) {
+  const caja = $("tira-intentos");
+  caja.hidden = false;
+  caja.innerHTML = "";
+  (historial || []).forEach((intento, i) => {
+    const fila = document.createElement("div");
+    fila.style.cssText = "display:flex; gap:8px; align-items:center; font-size:12px";
+    const img = document.createElement("img");
+    img.src = `/view?filename=${encodeURIComponent(intento.archivo)}&subfolder=${CARPETA}&type=output`;
+    img.style.cssText = "width:56px; height:56px; object-fit:cover; border-radius:6px; cursor:pointer";
+    img.title = intento.prompt;
+    img.addEventListener("click", () => { $("prompt").value = intento.prompt; });
+    const txt = document.createElement("div");
+    txt.innerHTML = `<b>Intento ${i + 1} · ${intento.puntuacion}/10</b><br>` +
+      (intento.defectos.length ? intento.detalle.join("<br>") : "sin defectos") +
+      (intento.nota ? `<br><i style="opacity:.7">${intento.nota}</i>` : "");
+    txt.style.cssText = "line-height:1.4; opacity:.85";
+    fila.append(img, txt);
+    caja.appendChild(fila);
+  });
+  if (nota) {
+    const p = document.createElement("small");
+    p.textContent = enCurso ? `${nota} (intento ${enCurso})` : nota;
+    p.style.opacity = ".7";
+    caja.appendChild(p);
+  }
+}
+
+// ---------- prompt escrito por la IA local ----------
+let promptAnterior = null;
+
+async function escribirConIA() {
+  const idea = $("prompt").value.trim();
+  if (!idea) { aviso("Escribe primero la idea, aunque sean tres palabras."); $("prompt").focus(); return; }
+
+  const boton = $("escribir-ia");
+  boton.disabled = true;
+  $("ia-estado").textContent = "escribiendo…";
+  try {
+    const r = await fetch("/exo/estudio/prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idea, para3d: $("para3d").checked, semilla: Date.now() % 100000,
+                             referencias: referencias().length,
+                             // La IA es multimodal: si ve las referencias describe lo que hay
+                             // de verdad en la segunda en vez de inventarselo.
+                             imagenes_ref: referencias() }),
+    });
+    const datos = await r.json();
+    if (datos.aviso) {
+      // La IA no contesto: se deja lo escrito y se dice por que.
+      aviso(datos.aviso, true);
+      $("ia-estado").textContent = "";
+      return;
+    }
+    promptAnterior = idea;
+    $("prompt").value = datos.prompt;
+    $("deshacer-ia").hidden = false;
+    const nRefs = referencias().length;
+    $("ia-estado").textContent = ($("para3d").checked ? "con reglas para 3D" : "modo imagen")
+      + (nRefs ? ` · ${nRefs} referencia${nRefs > 1 ? "s" : ""}` : "");
+    if (datos.soltar_referencia_2) {
+      // La condición va escrita con palabras: con la referencia 2 cargada, su sujeto se
+      // queda con la escena. No se quita sola porque es una imagen que tú pusiste.
+      aviso("La condición ya va descrita con palabras. Quita la referencia 2 con su ×: si se "
+            + "queda, su sujeto se apodera de la escena y tu objeto acaba de decorado.", true);
+    }
+  } catch (e) {
+    aviso("No se pudo hablar con la IA: " + e.message, true);
+    $("ia-estado").textContent = "";
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+async function corregirConObservacion() {
+  const texto = $("observaciones").value.trim();
+  if (!texto) { aviso("Escribe primero qué le falla.", true); return; }
+  const img = actual();
+  if (!img) { aviso("Abre una imagen primero.", true); return; }
+
+  const boton = $("corregir-obs");
+  boton.disabled = true;
+  $("obs-estado").textContent = "mirando la imagen…";
+  try {
+    const datos = await post("/exo/estudio/observacion", {
+      archivo: img.archivo,
+      // Se corrige el prompt DE ESA imagen, no lo que haya en el formulario: puede que
+      // estes mirando una de hace rato.
+      prompt: img.prompt || $("prompt").value.trim(),
+      negativo: img.negativo || "",
+      observaciones: texto,
+      referencias: (img.imagenes_ref || []).length,
+      para3d: $("para3d").checked,
+    });
+    if (datos.aviso) { aviso(datos.aviso, true); $("obs-estado").textContent = ""; return; }
+    promptAnterior = $("prompt").value;
+    $("prompt").value = datos.prompt;
+    // El negativo es donde acaban los fallos que no se pueden pedir en positivo (dedos de
+    // mas, texto, marcas), asi que hay que aplicarlo tambien.
+    if (datos.negativo) $("negativo").value = datos.negativo;
+    $("deshacer-ia").hidden = false;
+    // La semilla se cambia sola cuando el fallo es de anatomía: no hay palabra que
+    // coloque unos dedos, hay que volver a tirar.
+    if (datos.cambiar_semilla) $("aleatoria").checked = true;
+    $("obs-estado").textContent = datos.cambiar_semilla ? "prompt corregido · semilla nueva"
+                                                        : "prompt corregido";
+    aviso(datos.cambios || "Prompt corregido con tu observación.");
+  } catch (e) {
+    aviso("No se pudo corregir: " + e.message, true);
+    $("obs-estado").textContent = "";
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+function deshacerIA() {
+  if (promptAnterior === null) return;
+  $("prompt").value = promptAnterior;
+  promptAnterior = null;
+  $("deshacer-ia").hidden = true;
+  $("ia-estado").textContent = "";
+}
+function marcarFormato() {
+  for (const b of $("formatos").children) b.classList.toggle("activo", b.textContent === estado.formato);
+}
+
+async function cargarOpciones() {
+  const info = await json("/object_info");
+  const lista = (clase, campo) => info[clase]?.input?.required?.[campo]?.[0] ?? [];
+  if (!info.UnetLoaderGGUF) aviso("Falta el nodo «Unet Loader (GGUF)»: revisa custom_nodes/ComfyUI-GGUF.", true);
+  if (!info.TextEncodeQwenImage21) aviso("Este ComfyUI no trae TextEncodeQwenImage21: actualízalo a 0.37 o posterior.", true);
+  rellenar($("modelo"), lista("UnetLoaderGGUF", "unet_name").filter((n) => /qwen.?image.?2\.1/i.test(n)), /Q8_0/);
+  rellenar($("codificador"), lista("CLIPLoader", "clip_name").filter((n) => /qwen3vl/i.test(n)), /int8/);
+  rellenar($("vae"), lista("VAELoader", "vae_name").filter((n) => /qwen/i.test(n)), /2\.1/);
+  rellenar($("sampler"), lista("KSampler", "sampler_name"), /^euler$/);
+  rellenar($("scheduler"), lista("KSampler", "scheduler"), /^simple$/);
+  if (!$("modelo").options.length) aviso("No hay ningún GGUF de Qwen-Image 2.1 en models/diffusion_models.", true);
+}
+
+async function subirReferencia(hueco = 1) {
+  const archivo = $(`ref-archivo-${hueco}`).files[0];
+  if (!archivo) return;
+  const datos = new FormData();
+  datos.append("image", archivo);
+  datos.append("subfolder", "exo_estudio");
+  try {
+    const r = await json("/upload/image", { method: "POST", body: datos });
+    ponerReferencia(r.subfolder ? `${r.subfolder}/${r.name}` : r.name, hueco);
+  } catch (e) { aviso("No se pudo subir la referencia: " + e.message, true); }
+}
+
+function ponerReferencia(nombre, hueco = 1) {
+  estado.refImagenes[hueco - 1] = nombre;
+  const mini = $(`ref-mini-${hueco}`);
+  if (nombre) {
+    const partes = nombre.split("/");
+    const fichero = partes.pop();
+    mini.src = `/view?filename=${encodeURIComponent(fichero)}&subfolder=${encodeURIComponent(partes.join("/"))}&type=input`;
+  } else {
+    $(`ref-archivo-${hueco}`).value = "";
+  }
+  mini.hidden = $(`ref-quitar-${hueco}`).hidden = !nombre;
+  $(`ref-archivo-${hueco}`).hidden = !!nombre;
+  pintarEstadoReferencias();
+}
+
+function referencias() {
+  return estado.refImagenes.filter(Boolean);
+}
+
+function pintarEstadoReferencias() {
+  // El tamano lo manda la primera referencia, asi que con referencia no se elige formato.
+  const hay = referencias().length;
+  document.querySelectorAll(".chips#formatos button, #mp").forEach((el) => (el.disabled = hay > 0));
+  $("tamano").textContent = hay ? "el de la referencia 1" : "";
+  if (!hay) pintarTamano();
+}
+
+// ---------- generar ----------
+function textoFinal() {
+  let texto = $("prompt").value.trim();
+  if ($("para3d").checked)
+    // "subject", no "object": decir objeto empujaba al generador lejos de las figuras de
+    // personas, que es justo lo que mas se imprime. Con referencia la coletilla es mas
+    // corta, porque ahi el prompt describe un cambio y no una escena entera.
+    texto += referencias().length
+      ? ". Keep it as one single complete figure, centered, plain neutral background, soft even lighting, nothing cropped, no text."
+      : ". Single complete subject, fully visible and centered, three-quarter view, plain neutral background, soft even lighting, no cropping, no text.";
+  if ($("transparente").checked)
+    texto = `This is an RGBA format image with transparency. ${texto} The image has an alpha channel and a transparent background.`;
+  return texto;
+}
+
+function grafo(semilla) {
+  const [w, h] = tamano();
+  const g = {
+    "1": { class_type: "UnetLoaderGGUF", inputs: { unet_name: $("modelo").value } },
+    "2": { class_type: "CLIPLoader", inputs: { clip_name: $("codificador").value, type: "qwen_image", device: "default" } },
+    "3": { class_type: "VAELoader", inputs: { vae_name: $("vae").value } },
+    "4": { class_type: "TextEncodeQwenImage21", inputs: {
+      clip: ["2", 0], vae: ["3", 0], prompt: textoFinal(), negative_prompt: $("negativo").value, resolution: 1024 } },
+    "5": { class_type: "EmptyLatentImage", inputs: { width: w, height: h, batch_size: 1 } },
+    "6": { class_type: "KSampler", inputs: {
+      model: ["1", 0], positive: ["4", 0], negative: ["4", 1], latent_image: ["5", 0],
+      seed: semilla, steps: +$("pasos").value, cfg: +$("cfg").value,
+      sampler_name: $("sampler").value, scheduler: $("scheduler").value, denoise: 1 } },
+    "7": { class_type: "VAEDecode", inputs: { samples: ["6", 0], vae: ["3", 0] } },
+    "9": { class_type: "SaveImage", inputs: { images: ["7", 0], filename_prefix: `${CARPETA}/qwen` } },
+  };
+  const refs = referencias();
+  if (refs.length) {
+    // El nodo admite hasta 16 referencias en images.image_N; aqui se usan las que haya.
+    refs.forEach((nombre, i) => {
+      const id = String(20 + i);
+      g[id] = { class_type: "LoadImage", inputs: { image: nombre } };
+      g["4"].inputs[`images.image_${i + 1}`] = [id, 0];
+    });
+    g["6"].inputs.latent_image = ["4", 2];   // el latente al tamano de la primera referencia
+    delete g["5"];
+  }
+  return g;
+}
+
+async function generar(n) {
+  if (!$("prompt").value.trim()) { aviso("Escribe primero qué quieres generar."); $("prompt").focus(); return; }
+  const cuantas = n ?? Math.max(1, Math.min(16, +$("variantes").value || 1));
+  let semilla = $("aleatoria").checked ? semillaAleatoria() : +$("semilla").value;
+  $("generar").disabled = true;
+  try {
+    for (let i = 0; i < cuantas; i++) {
+      const r = await post("/prompt", { prompt: grafo(semilla + i), client_id: CLIENTE });
+      estado.trabajos.set(r.prompt_id, { inicio: estado.inicios.get(r.prompt_id) ?? null, total: +$("pasos").value, hechos: 0 });
+    }
+    if (!$("aleatoria").checked) $("semilla").value = semilla + cuantas;
+    pintarCola();
+    pintarGaleria();
+  } catch (e) {
+    aviso("ComfyUI rechazó el trabajo: " + e.message.slice(0, 400), true);
+  } finally {
+    $("generar").disabled = false;
+  }
+}
+
+async function cancelar() {
+  const ids = [...estado.trabajos.keys()];
+  await post("/queue", { delete: ids }).catch(() => {});
+  await fetch("/interrupt", { method: "POST" }).catch(() => {});
+  estado.trabajos.clear();
+  pintarCola();
+}
+
+function pintarCola(actual) {
+  const n = estado.trabajos.size;
+  $("cola").classList.toggle("visible", n > 0);
+  if (!n) return;
+  const t = actual && estado.trabajos.get(actual);
+  if (t && t.inicio) {
+    const pct = t.total ? Math.round((t.hechos / t.total) * 100) : 0;
+    $("cola-barra").style.width = pct + "%";
+    const seg = ((performance.now() - t.inicio) / 1000).toFixed(0);
+    $("cola-texto").textContent = `Generando · paso ${t.hechos}/${t.total} · ${seg} s` + (n > 1 ? ` · ${n - 1} en espera` : "");
+  } else {
+    $("cola-barra").style.width = "0";
+    $("cola-texto").textContent = `${n} en cola`;
+  }
+}
+
+async function terminado(id) {
+  const t = estado.trabajos.get(id);
+  estado.trabajos.delete(id);
+  pintarCola();
+  try {
+    const historia = await json(`/history/${id}`);
+    const salidas = historia[id]?.outputs ?? {};
+    for (const salida of Object.values(salidas)) {
+      for (const img of salida.images ?? []) {
+        if (img.subfolder === CARPETA && t?.inicio)
+          await post("/exo/estudio/revision", { archivo: img.filename, segundos: +((performance.now() - t.inicio) / 1000).toFixed(1) });
+      }
+    }
+  } catch (e) { /* la imagen aparece igual en la galeria */ }
+  await cargarGaleria();
+}
+
+function conectar() {
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?clientId=${CLIENTE}`);
+  ws.onopen = () => ($("estado-servidor").textContent = "conectado");
+  ws.onclose = () => { $("estado-servidor").textContent = "sin conexión, reintentando…"; setTimeout(conectar, 2000); };
+  ws.onmessage = (ev) => {
+    if (typeof ev.data !== "string") return;   // vistas previas binarias
+    const { type, data } = JSON.parse(ev.data);
+    const id = data?.prompt_id;
+    const t = id && estado.trabajos.get(id);
+    if (type === "execution_start") {
+      estado.inicios.set(id, performance.now());
+      if (t) { t.inicio = estado.inicios.get(id); pintarCola(id); }
+    }
+    else if (type === "progress" && t) { t.hechos = data.value; t.total = data.max; pintarCola(id); }
+    else if (type === "execution_success" && t) terminado(id);
+    else if (type === "execution_error" && t) {
+      estado.trabajos.delete(id); pintarCola();
+      aviso(`Error en ${data.node_type}: ${data.exception_message}`.slice(0, 500), true);
+    } else if (type === "execution_interrupted" && t) { estado.trabajos.delete(id); pintarCola(); }
+  };
+}
+
+// ---------- galeria ----------
+async function cargarGaleria() {
+  const r = await json("/exo/estudio/imagenes");
+  estado.imagenes = r.imagenes;
+  estado.revisiones = r.revisiones;
+  pintarGaleria();
+}
+function rev(nombre) { return estado.revisiones[nombre] ?? {}; }
+
+function filtrar() {
+  const texto = $("buscar").value.trim().toLowerCase();
+  const minimo = +$("min-estrellas").value;
+  let lista = estado.imagenes.filter((img) => {
+    const r = rev(img.archivo);
+    if (estado.filtro === "sin" && r.estado) return false;
+    if (estado.filtro === "buena" && r.estado !== "buena") return false;
+    if (estado.filtro === "descartada" && r.estado !== "descartada") return false;
+    if (minimo && (r.estrellas ?? 0) < minimo) return false;
+    if (texto && !`${img.prompt ?? ""} ${r.nota ?? ""}`.toLowerCase().includes(texto)) return false;
+    return true;
+  });
+  if ($("orden").value === "estrellas")
+    lista = lista.slice().sort((a, b) => (rev(b.archivo).estrellas ?? 0) - (rev(a.archivo).estrellas ?? 0) || b.fecha - a.fecha);
+  return lista;
+}
+
+function pintarGaleria() {
+  estado.visibles = filtrar();
+  const rejilla = $("rejilla");
+  rejilla.innerHTML = "";
+  for (let i = 0; i < estado.trabajos.size; i++) {
+    const f = document.createElement("div");
+    f.className = "tarjeta";
+    f.innerHTML = '<div class="fantasma">generando…</div>';
+    rejilla.appendChild(f);
+  }
+  estado.visibles.forEach((img, i) => {
+    const r = rev(img.archivo);
+    const t = document.createElement("div");
+    t.className = "tarjeta" + (r.estado === "descartada" ? " descartada" : "") + (estado.comparar.includes(img.archivo) ? " elegida" : "");
+    const foto = document.createElement("img");
+    foto.loading = "lazy";
+    foto.src = urlMiniatura(img.archivo);
+    foto.alt = img.prompt ?? img.archivo;
+    t.appendChild(foto);
+    if (r.estado) {
+      const s = document.createElement("span");
+      s.className = "sello " + r.estado;
+      s.textContent = r.estado === "buena" ? "✓" : "✗";
+      t.appendChild(s);
+    }
+    if (r.estrellas) {
+      const s = document.createElement("span");
+      s.className = "estrellas-mini";
+      s.textContent = "★".repeat(r.estrellas);
+      t.appendChild(s);
+    }
+    const pie = document.createElement("div");
+    pie.className = "pie";
+    const a = document.createElement("span"); a.textContent = img.prompt ?? "(sin datos)";
+    const b = document.createElement("span"); b.textContent = r.segundos ? `${Math.round(r.segundos)} s` : "";
+    const borrar=document.createElement("button");
+    borrar.type="button";borrar.textContent="Borrar";borrar.style.cssText="min-height:44px;color:#ffaaa0";
+    borrar.addEventListener("click",async(e)=>{e.stopPropagation();await window.exoBorrarResultado({archivo:"output:qwen21/"+img.archivo});});
+    pie.append(a, b, borrar);
+    t.appendChild(pie);
+    t.addEventListener("click", (e) => (e.shiftKey || e.ctrlKey ? elegirComparar(img.archivo) : abrir(i)));
+    t.title = "Clic: abrir · Mayús+clic: elegir para comparar";
+    rejilla.appendChild(t);
+  });
+  if (!estado.visibles.length && !estado.trabajos.size) {
+    const v = document.createElement("div");
+    v.className = "vacio";
+    v.textContent = estado.imagenes.length ? "Ninguna imagen cumple el filtro." : "Aún no hay imágenes. Escribe un prompt y pulsa Generar.";
+    rejilla.appendChild(v);
+  }
+  const n = (k) => estado.imagenes.filter((img) => (rev(img.archivo).estado ?? "") === k).length;
+  $("contador").textContent = `${estado.visibles.length} de ${estado.imagenes.length} · ${n("buena")} buenas · ${n("descartada")} descartadas · ${n("")} sin revisar`;
+  $("comparar").textContent = `Comparar (${estado.comparar.length}/2)`;
+  $("comparar").disabled = estado.comparar.length !== 2;
+}
+
+function construirFiltros() {
+  for (const [clave, texto] of FILTROS) {
+    const b = document.createElement("button");
+    b.textContent = texto;
+    b.dataset.clave = clave;
+    b.addEventListener("click", () => { estado.filtro = clave; marcarFiltro(); pintarGaleria(); });
+    $("filtros").appendChild(b);
+  }
+  marcarFiltro();
+  $("buscar").addEventListener("input", pintarGaleria);
+  $("min-estrellas").addEventListener("change", pintarGaleria);
+  $("orden").addEventListener("change", pintarGaleria);
+  $("comparar").addEventListener("click", abrirComparador);
+}
+function marcarFiltro() {
+  for (const b of $("filtros").children) b.classList.toggle("activo", b.dataset.clave === estado.filtro);
+}
+
+window.addEventListener("exo-resultados-borrados",async(e)=>{
+  const eliminados=new Set(e.detail.eliminados);
+  if (actual() && eliminados.has("output:qwen21/"+actual().archivo)) {
+    $("visor").classList.remove("abierto");estado.indice=-1;$("nota").value="";
+  }
+  estado.comparar=estado.comparar.filter(n=>!eliminados.has("output:qwen21/"+n));
+  if (estado.refImagenes) estado.refImagenes.forEach((n,i)=>{if(eliminados.has("input:"+n)) ponerReferencia(null,i+1);});
+  await cargarGaleria();
+});
+// ---------- visor ----------
+function actual() { return estado.visibles[estado.indice]; }
+
+function abrir(i) {
+  estado.indice = i;
+  $("visor").classList.add("abierto");
+  $("lienzo").classList.remove("zoom");
+  pintarVisor();
+}
+function cerrar() { $("visor").classList.remove("abierto"); estado.indice = -1; guardarNota(); pintarGaleria(); }
+function mover(d) {
+  if (!estado.visibles.length) return;
+  guardarNota();
+  estado.indice = (estado.indice + d + estado.visibles.length) % estado.visibles.length;
+  $("lienzo").classList.remove("zoom");
+  pintarVisor();
+}
+
+function datosDe(img, r) {
+  return [
+    ["Tamaño", img.ancho ? `${img.ancho} × ${img.alto}` : "—"],
+    ["Semilla", img.seed ?? "—"],
+    ["Pasos", img.steps ?? "—"],
+    ["CFG", img.cfg ?? "—"],
+    ["Sampler", img.sampler_name ? `${img.sampler_name} / ${img.scheduler}` : "—"],
+    ["Modelo", img.modelo ?? "—"],
+    ["Referencia", img.imagen_ref ?? "no"],
+    ["Tiempo", r.segundos ? `${r.segundos} s` : "—"],
+    ["Fecha", new Date(img.fecha * 1000).toLocaleString("es")],
+  ];
+}
+
+function pintarVisor() {
+  const img = actual();
+  if (!img) return cerrar();
+  const r = rev(img.archivo);
+  $("visor-img").src = urlImagen(img.archivo);
+  $("visor-nombre").textContent = `${estado.indice + 1}/${estado.visibles.length} · ${img.archivo}`;
+  $("visor-prompt").textContent = img.prompt ?? "(la imagen no guarda el prompt)";
+  const dl = $("visor-datos");
+  dl.innerHTML = "";
+  for (const [k, v] of datosDe(img, r)) {
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v;
+    dl.append(dt, dd);
+  }
+  for (const b of document.querySelectorAll(".veredicto button")) b.classList.toggle("activo", (r.estado ?? "") === b.dataset.estado);
+  const est = $("estrellas");
+  est.innerHTML = "";
+  for (let n = 1; n <= 5; n++) {
+    const b = document.createElement("button");
+    b.textContent = "★";
+    b.title = `${n} (tecla ${n})`;
+    b.className = n <= (r.estrellas ?? 0) ? "on" : "";
+    b.addEventListener("click", () => revisar({ estrellas: r.estrellas === n ? 0 : n }));
+    est.appendChild(b);
+  }
+  $("nota").value = r.nota ?? "";
+  $("descargar").href = urlImagen(img.archivo);
+  $("descargar").download = img.archivo;
+  $("elegir").classList.toggle("activo", estado.comparar.includes(img.archivo));
+}
+
+async function revisar(cambios, nombre = actual()?.archivo) {
+  if (!nombre) return;
+  estado.revisiones[nombre] = { ...rev(nombre), ...cambios };
+  if (estado.indice >= 0) pintarVisor();
+  try { await post("/exo/estudio/revision", { archivo: nombre, ...cambios }); }
+  catch (e) { aviso("No se guardó la revisión: " + e.message, true); }
+}
+function guardarNota() {
+  const img = actual();
+  if (img && $("nota").value !== (rev(img.archivo).nota ?? "")) revisar({ nota: $("nota").value }, img.archivo);
+}
+
+function reusar(img) {
+  $("prompt").value = img.prompt ?? "";
+  $("negativo").value = img.negativo ?? "";
+  $("transparente").checked = $("para3d").checked = false;
+  if (img.steps) $("pasos").value = img.steps;
+  if (img.cfg) $("cfg").value = img.cfg;
+  if (img.sampler_name) $("sampler").value = img.sampler_name;
+  if (img.scheduler) $("scheduler").value = img.scheduler;
+  if (img.modelo && [...$("modelo").options].some((o) => o.value === img.modelo)) $("modelo").value = img.modelo;
+  if (img.seed != null) { $("semilla").value = img.seed; $("aleatoria").checked = false; $("semilla").disabled = false; }
+  if (img.ancho && !img.referencia) {
+    const ar = img.ancho / img.alto;
+    const mejor = FORMATOS.reduce((m, f) => (Math.abs(f[1] / f[2] - ar) < Math.abs(m[1] / m[2] - ar) ? f : m));
+    estado.formato = mejor[0];
+    const mp = (img.ancho * img.alto) / (1024 * 1024);
+    $("mp").value = [...$("mp").options].reduce((m, o) => (Math.abs(o.value - mp) < Math.abs(m.value - mp) ? o : m)).value;
+    marcarFormato(); pintarTamano();
+  }
+  const refs = img.referencia ? (img.imagenes_ref ?? [img.imagen_ref].filter(Boolean)) : [];
+  ponerReferencia(refs[0] ?? null, 1);
+  ponerReferencia(refs[1] ?? null, 2);
+}
+
+function construirVisor() {
+  $("visor-cerrar").addEventListener("click", cerrar);
+  $("anterior").addEventListener("click", (e) => { e.stopPropagation(); mover(-1); });
+  $("siguiente").addEventListener("click", (e) => { e.stopPropagation(); mover(1); });
+  $("visor-img").addEventListener("click", () => $("lienzo").classList.toggle("zoom"));
+  for (const b of document.querySelectorAll(".veredicto button"))
+    b.addEventListener("click", () => revisar({ estado: b.dataset.estado || null }));
+  $("nota").addEventListener("blur", guardarNota);
+  $("reusar").addEventListener("click", () => { reusar(actual()); cerrar(); aviso("Ajustes cargados en el formulario."); });
+  $("variar").addEventListener("click", () => {
+    reusar(actual()); $("aleatoria").checked = true; $("semilla").disabled = true;
+    cerrar(); generar(4);
+  });
+  $("editar").addEventListener("click", async () => {
+    try {
+      const r = await post("/exo/estudio/a_entrada", { archivo: actual().archivo });
+      ponerReferencia(r.entrada, estado.refImagenes[0] && !estado.refImagenes[1] ? 2 : 1);
+      $("prompt").value = ""; $("transparente").checked = $("para3d").checked = false;
+      cerrar(); $("prompt").focus();
+      aviso("Referencia puesta. Describe el cambio y genera.");
+    } catch (e) { aviso(e.message, true); }
+  });
+  $("a3d").addEventListener("click", async () => {
+    try {
+      const r = await post("/exo/estudio/a_entrada", { archivo: actual().archivo });
+      aviso(`Copiada a input/${r.entrada}: elígela en «Load Image» del flujo imagen → pieza.`);
+    } catch (e) { aviso(e.message, true); }
+  });
+  $("elegir").addEventListener("click", () => { elegirComparar(actual().archivo); pintarVisor(); });
+  $("comparador-cerrar").addEventListener("click", () => $("comparador").classList.remove("abierto"));
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input, textarea, select")) { if (e.key === "Escape") e.target.blur(); return; }
+    if ($("comparador").classList.contains("abierto")) { if (e.key === "Escape") $("comparador").classList.remove("abierto"); return; }
+    if (!$("visor").classList.contains("abierto")) return;
+    const teclas = {
+      Escape: cerrar, ArrowLeft: () => mover(-1), ArrowRight: () => mover(1),
+      b: () => revisar({ estado: "buena" }), x: () => revisar({ estado: "descartada" }), u: () => revisar({ estado: null }),
+      r: () => $("reusar").click(), v: () => $("variar").click(), e: () => $("editar").click(), c: () => $("elegir").click(),
+    };
+    const f = teclas[e.key] ?? teclas[e.key.toLowerCase()];
+    if (f) { e.preventDefault(); f(); }
+    else if (/^[1-5]$/.test(e.key)) revisar({ estrellas: +e.key });
+  });
+}
+
+// ---------- comparar ----------
+function elegirComparar(nombre) {
+  const i = estado.comparar.indexOf(nombre);
+  if (i >= 0) estado.comparar.splice(i, 1);
+  else { estado.comparar.push(nombre); if (estado.comparar.length > 2) estado.comparar.shift(); }
+  pintarGaleria();
+}
+function abrirComparador() {
+  const fichas = estado.comparar.map((n) => estado.imagenes.find((i) => i.archivo === n)).filter(Boolean);
+  if (fichas.length !== 2) return;
+  const datos = fichas.map((f) => [["Prompt", f.prompt ?? "—"], ...datosDe(f, rev(f.archivo)), ["Nota", rev(f.archivo).nota || "—"]]);
+  const lados = $("lados");
+  lados.innerHTML = "";
+  fichas.forEach((f, k) => {
+    const lado = document.createElement("div");
+    lado.className = "lado";
+    const img = document.createElement("img"); img.src = urlMiniatura(f.archivo);
+    const dl = document.createElement("dl"); dl.className = "datos";
+    datos[k].forEach(([clave, valor], j) => {
+      if (clave === "Fecha") return;
+      const dt = document.createElement("dt"); dt.textContent = clave;
+      const dd = document.createElement("dd"); dd.textContent = valor;
+      if (String(valor) !== String(datos[1 - k][j][1]) && clave !== "Tiempo") dd.className = "distinto";
+      dl.append(dt, dd);
+    });
+    lado.append(img, dl);
+    lados.appendChild(lado);
+  });
+  $("comparador").classList.add("abierto");
+}
+
+// ---------- arranque ----------
+construirFormulario();
+construirFiltros();
+construirVisor();
+conectar();
+cargarOpciones().catch((e) => aviso("No pude leer los nodos de ComfyUI: " + e.message, true));
+cargarGaleria().catch((e) => aviso("No pude leer la galería: " + e.message, true));
+</script>
+<script src="/exo/resultados.js"></script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-﻿"""Prueba final: las 10 imagenes de prueba por el sistema completo.
+"""Prueba final: las 10 imagenes de prueba por el sistema completo.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\prueba_final.py [carpeta]
 

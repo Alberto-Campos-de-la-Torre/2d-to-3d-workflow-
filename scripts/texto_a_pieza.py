@@ -1,4 +1,4 @@
-﻿"""De un prompt a una pieza imprimible, en una sola orden.
+"""De un prompt a una pieza imprimible, en una sola orden.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\texto_a_pieza.py "un gato sentado, figura de resina" [--altura 80] [--semilla 42] [--paleta "#1a1a1a,#f2f2f2"]
 

@@ -1,4 +1,4 @@
-﻿"""Genera mallas 3D (solo geometria) a traves de la API local de ComfyUI.
+"""Genera mallas 3D (solo geometria) a traves de la API local de ComfyUI.
 
 Motores disponibles: hy2.0 (Hunyuan3D 2.0), hy2.1 (Hunyuan3D 2.1) y trellis2 (TRELLIS.2).
 
@@ -9,6 +9,7 @@ Por defecto procesa todas las imagenes de D:\\AI3D\\pruebas\\entrada y anade una
 imagen a D:\\AI3D\\pruebas\\registro_pruebas.csv. ComfyUI debe estar arrancado (Iniciar_ComfyUI_3D.bat).
 """
 import argparse
+import os
 import csv
 import json
 import mimetypes
@@ -19,8 +20,8 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-SERVIDOR = "http://127.0.0.1:8188"
-BASE = Path(r"D:\AI3D")
+SERVIDOR = "http://localhost:8188"
+BASE = Path(os.environ.get("EXO_HOME", Path(__file__).resolve().parents[1]))
 ENTRADA = BASE / "pruebas" / "entrada"
 REGISTRO = BASE / "pruebas" / "registro_pruebas.csv"
 SALIDA_COMFY = BASE / "ComfyUI_windows_portable" / "ComfyUI" / "output"

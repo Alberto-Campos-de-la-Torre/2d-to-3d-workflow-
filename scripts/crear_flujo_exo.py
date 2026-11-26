@@ -1,4 +1,4 @@
-﻿"""Genera el flujo 'Exo - imagen a pieza imprimible' y lo guarda en ComfyUI.
+"""Genera el flujo 'Exo - imagen a pieza imprimible' y lo guarda en ComfyUI.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\crear_flujo_exo.py
 

@@ -14,6 +14,7 @@ mas recientes y lo de los ultimos dias, que es con lo que se suele estar trabaja
 import argparse
 import shutil
 import time
+import sys
 from pathlib import Path
 
 RAIZ = Path(r"D:\AI3D")
@@ -31,7 +32,7 @@ GRUPOS = [
 ]
 
 # Lo que no se toca ni pasando --borrar.
-INTOCABLE = ("models", "input", "custom_nodes", "repo", "scripts", "user", "python_embeded")
+INTOCABLE = ("models", "input", "custom_nodes", "repo", "scripts", "user", "python_embeded", "encargos")
 
 
 def _tamano(ruta):
@@ -49,24 +50,64 @@ def _humano(bytes_):
 
 
 def _protegida(ruta):
-    return any(parte in INTOCABLE for parte in ruta.parts)
+    return any(parte.casefold() in INTOCABLE for parte in ruta.parts)
 
 
 def revisar(grupo, carpeta, dias, conservar):
     """Archivos del grupo que se pueden borrar, mas lo que se deja y por que."""
     if not carpeta.exists() or _protegida(carpeta):
         return [], 0, 0
-    archivos = [f for f in carpeta.rglob("*") if f.is_file()]
-    archivos.sort(key=lambda f: f.stat().st_mtime, reverse=True)
-
+    if dias < 0 or conservar < 0:
+        raise ValueError("dias y conservar deben ser no negativos")
+    base = carpeta.resolve()
+    sys.path.insert(0, str(RAIZ / "ComfyUI_windows_portable/ComfyUI/custom_nodes/exo_filaments"))
+    from archivos import dependencias
+    archivos = [f.resolve() for f in carpeta.rglob("*") if f.is_file() and not f.is_symlink()
+                and f.resolve().is_relative_to(base) and not _protegida(f)]
+    padres = {f: f for f in archivos}
+    def raiz(f):
+        while padres[f] != f:
+            padres[f] = padres[padres[f]]
+            f = padres[f]
+        return f
+    def unir(a, b):
+        padres[raiz(a)] = raiz(b)
+    por_corte = {}
+    por_nombre = {}
+    proteger = set()
+    for archivo in archivos:
+        for ancestro in archivo.parents:
+            if ancestro == base: break
+            if ancestro.name.startswith("corte_"):
+                if ancestro in por_corte: unir(archivo, por_corte[ancestro])
+                por_corte[ancestro] = archivo
+                break
+        clave = (archivo.parent, archivo.stem)
+        if clave in por_nombre:
+            unir(archivo, por_nombre[clave])
+        por_nombre[clave] = archivo
+        try:
+            for otro in dependencias(archivo, base):
+                if otro in padres:
+                    unir(archivo, otro)
+                else:
+                    proteger.add(archivo)
+        except (ValueError, OSError):
+            # Ante una dependencia desconocida se conserva el grupo entero.
+            proteger.add(archivo)
+    grupos = {}
+    for archivo in archivos:
+        grupos.setdefault(raiz(archivo), []).append(archivo)
+    grupos = sorted(grupos.values(), key=lambda g: max(f.stat().st_mtime for f in g), reverse=True)
     limite = time.time() - dias * 86400
     sobran, guardados = [], 0
-    for i, archivo in enumerate(archivos):
-        if i < conservar or archivo.stat().st_mtime > limite:
-            guardados += 1
-            continue
-        sobran.append(archivo)
+    for i, conjunto in enumerate(grupos):
+        if i < conservar or any(f in proteger or f.stat().st_mtime > limite for f in conjunto):
+            guardados += len(conjunto)
+        else:
+            sobran.extend(conjunto)
     return sobran, guardados, sum(_tamano(f) for f in sobran)
+
 
 
 def main():
@@ -75,7 +116,7 @@ def main():
     p.add_argument("--dias", type=int, default=7,
                    help="no toca nada de los ultimos N dias (por defecto 7)")
     p.add_argument("--conservar", type=int, default=5,
-                   help="archivos mas recientes que se salvan siempre en cada grupo")
+                   help="conjuntos mas recientes que se salvan siempre en cada grupo")
     args = p.parse_args()
 
     total, por_borrar = 0, []
@@ -106,8 +147,10 @@ def main():
         return
 
     borrados, fallos = 0, 0
+    bases = [carpeta.resolve() for _, carpeta, _ in GRUPOS]
     for archivo in por_borrar:
-        if _protegida(archivo):
+        destino = archivo.resolve()
+        if archivo.is_symlink() or not any(destino.is_relative_to(base) for base in bases) or _protegida(destino):
             continue
         try:
             archivo.unlink()
@@ -119,7 +162,7 @@ def main():
         if not carpeta.exists():
             continue
         for sub in sorted(carpeta.rglob("*"), key=lambda r: len(r.parts), reverse=True):
-            if sub.is_dir() and not any(sub.iterdir()):
+            if sub.is_dir() and not sub.is_symlink() and not _protegida(sub) and sub.resolve().is_relative_to(carpeta.resolve()) and not any(sub.iterdir()):
                 try:
                     sub.rmdir()
                 except OSError:

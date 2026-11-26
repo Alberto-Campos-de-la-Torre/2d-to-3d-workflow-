@@ -4,3 +4,5 @@ from . import estudio  # noqa: F401  (registra las rutas de /exo/estudio)
 from . import pieza    # noqa: F401  (registra las rutas de /exo/pieza)
 
 WEB_DIRECTORY = "./js"
+
+from . import resultados  # registra el catalogo y el borrado local

@@ -1,2935 +1,2935 @@
 {
- "id": "exo-texto-a-pieza",
- "revision": 0,
- "last_node_id": 204,
- "last_link_id": 76,
- "nodes": [
-  {
-   "id": 8,
-   "type": "ExoPromptIA",
-   "pos": [
-    0,
-    840
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 0,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "un buho estilizado de ceramica",
-    "3d",
-    "",
-    "",
-    0.8,
-    42
-   ],
-   "properties": {
-    "Node name for S&R": "ExoPromptIA"
-   },
-   "outputs": [
+  "id": "exo-texto-a-pieza",
+  "revision": 0,
+  "last_node_id": 204,
+  "last_link_id": 76,
+  "nodes": [
     {
-     "name": "prompt",
-     "type": "STRING",
-     "links": [
-      2
-     ],
-     "slot_index": 0
+      "id": 8,
+      "type": "ExoPromptIA",
+      "pos": [
+        0,
+        840
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "un buho estilizado de ceramica",
+        "3d",
+        "",
+        "",
+        0.8,
+        42
+      ],
+      "properties": {
+        "Node name for S&R": "ExoPromptIA"
+      },
+      "outputs": [
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "type": "UnetLoaderGGUF",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "qwen-image-2.1-UC-Q8_0.gguf"
+      ],
+      "properties": {
+        "Node name for S&R": "UnetLoaderGGUF"
+      },
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [
+        0,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "qwen3vl_8b_int8_convrot.safetensors",
+        "qwen_image",
+        "default"
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader"
+      },
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [
+        0,
+        420
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "qwen_image_2.1_vae_bf16.safetensors"
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            3,
+            9
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "TextEncodeQwenImage21",
+      "pos": [
+        380,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 1
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "link": 2,
+          "widget": {
+            "name": "prompt"
+          }
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 3
+        }
+      ],
+      "widgets_values": [
+        "varios objetos, recortado, texto, marca de agua, fondo con cosas",
+        1024
+      ],
+      "properties": {
+        "Node name for S&R": "TextEncodeQwenImage21"
+      },
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            6
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [],
+          "slot_index": 2
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "EmptyLatentImage",
+      "pos": [
+        0,
+        630
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        1024,
+        1024,
+        1
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            7
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "KSampler",
+      "pos": [
+        760,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 4
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 5
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 6
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 7
+        }
+      ],
+      "widgets_values": [
+        42,
+        "fixed",
+        25,
+        1.0,
+        "euler",
+        "simple",
+        1.0
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "VAEDecode",
+      "pos": [
+        1140,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 8
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 9
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            10,
+            12,
+            13
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "SaveImage",
+      "pos": [
+        1520,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "widgets_values": [
+        "qwen21/pieza"
+      ],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 90,
+      "type": "LoadBackgroundRemovalModel",
+      "pos": [
+        0,
+        2100
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "birefnet.safetensors"
+      ],
+      "properties": {
+        "Node name for S&R": "LoadBackgroundRemovalModel"
+      },
+      "outputs": [
+        {
+          "name": "bg_model",
+          "type": "BACKGROUND_REMOVAL",
+          "links": [
+            11
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 91,
+      "type": "RemoveBackground",
+      "pos": [
+        1520,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "bg_removal_model",
+          "type": "BACKGROUND_REMOVAL",
+          "link": 11
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 12
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "RemoveBackground"
+      },
+      "outputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            14
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 92,
+      "type": "ImageCropToMask",
+      "pos": [
+        1900,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 13
+        },
+        {
+          "name": "masks",
+          "type": "MASK",
+          "link": 14
+        }
+      ],
+      "widgets_values": [
+        1024,
+        1024,
+        1.05,
+        0,
+        "#FFFFFF"
+      ],
+      "properties": {
+        "Node name for S&R": "ImageCropToMask"
+      },
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            16
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "CLIPVisionLoader",
+      "pos": [
+        0,
+        1050
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "dino_v3_L_naf_fp32.safetensors"
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPVisionLoader"
+      },
+      "outputs": [
+        {
+          "name": "CLIP_VISION",
+          "type": "CLIP_VISION",
+          "links": [
+            15
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "VAELoader",
+      "pos": [
+        0,
+        1260
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "trellis_2_shape_vae_bf16.safetensors"
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            27,
+            38,
+            44
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "UNETLoader",
+      "pos": [
+        0,
+        1470
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "trellis_2_int8_convrot.safetensors",
+        "default"
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            17,
+            20,
+            53
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "Trellis2Conditioning",
+      "pos": [
+        2280,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip_vision_model",
+          "type": "CLIP_VISION",
+          "link": 15
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "Trellis2Conditioning"
+      },
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            23,
+            28
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            24,
+            29
+          ],
+          "slot_index": 1
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "CFGOverride",
+      "pos": [
+        380,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 17
+        }
+      ],
+      "widgets_values": [
+        1.0,
+        0.667,
+        1.0
+      ],
+      "properties": {
+        "Node name for S&R": "CFGOverride"
+      },
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            18
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "RescaleCFG",
+      "pos": [
+        760,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 18
+        }
+      ],
+      "widgets_values": [
+        0.7
+      ],
+      "properties": {
+        "Node name for S&R": "RescaleCFG"
+      },
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            19
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "ModelSamplingSD3",
+      "pos": [
+        1140,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 19
+        }
+      ],
+      "widgets_values": [
+        5.0
+      ],
+      "properties": {
+        "Node name for S&R": "ModelSamplingSD3"
+      },
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            22
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "CFGOverride",
+      "pos": [
+        380,
+        420
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 20
+        }
+      ],
+      "widgets_values": [
+        1.0,
+        0.769,
+        1.0
+      ],
+      "properties": {
+        "Node name for S&R": "CFGOverride"
+      },
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            21
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "RescaleCFG",
+      "pos": [
+        760,
+        420
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 21
+        }
+      ],
+      "widgets_values": [
+        0.5
+      ],
+      "properties": {
+        "Node name for S&R": "RescaleCFG"
+      },
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            31,
+            39
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "EmptyTrellis2LatentStructure",
+      "pos": [
+        0,
+        1680
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        1
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyTrellis2LatentStructure"
+      },
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            25
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "KSampler",
+      "pos": [
+        2660,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 22
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 23
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 24
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 25
+        }
+      ],
+      "widgets_values": [
+        42,
+        "fixed",
+        12,
+        7.5,
+        "euler",
+        "normal",
+        1.0
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            26
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "VaeDecodeStructureTrellis2",
+      "pos": [
+        3040,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 26
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 27
+        }
+      ],
+      "widgets_values": [
+        "32"
+      ],
+      "properties": {
+        "Node name for S&R": "VaeDecodeStructureTrellis2"
+      },
+      "outputs": [
+        {
+          "name": "voxel",
+          "type": "VOXEL",
+          "links": [
+            30
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "Trellis2ShapeStage",
+      "pos": [
+        3420,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 28
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 29
+        },
+        {
+          "name": "voxel",
+          "type": "VOXEL",
+          "link": 30
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "Trellis2ShapeStage"
+      },
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            32,
+            35
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            33,
+            36
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            34
+          ],
+          "slot_index": 2
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "KSampler",
+      "pos": [
+        3800,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 31
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 32
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 33
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 34
+        }
+      ],
+      "widgets_values": [
+        42,
+        "fixed",
+        20,
+        7.5,
+        "euler",
+        "normal",
+        1.0
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            37
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "type": "Trellis2UpsampleStage",
+      "pos": [
+        4180,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 35
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 36
+        },
+        {
+          "name": "shape_latent",
+          "type": "LATENT",
+          "link": 37
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 38
+        }
+      ],
+      "widgets_values": [
+        "1536"
+      ],
+      "properties": {
+        "Node name for S&R": "Trellis2UpsampleStage"
+      },
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            40,
+            50
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            41,
+            51
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            42
+          ],
+          "slot_index": 2
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "type": "KSampler",
+      "pos": [
+        4560,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 39
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 40
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 41
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 42
+        }
+      ],
+      "widgets_values": [
+        42,
+        "fixed",
+        12,
+        7.5,
+        "euler",
+        "simple",
+        1.0
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            43,
+            52
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "type": "VaeDecodeShapeTrellis",
+      "pos": [
+        4940,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 28,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 43
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 44
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "VaeDecodeShapeTrellis"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            45,
+            46
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "shape_subdivides",
+          "type": "SHAPE_SUBDIVIDES",
+          "links": [
+            59
+          ],
+          "slot_index": 1
+        }
+      ]
+    },
+    {
+      "id": 82,
+      "type": "SaveGLB",
+      "pos": [
+        5320,
+        420
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH,FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_OBJ,FILE_3D_FBX,FILE_3D_STL,FILE_3D_USDZ,FILE_3D_PLY,FILE_3D_SPLAT,FILE_3D_SPZ,FILE_3D_KSPLAT,FILE_3D_SPLAT_ANY,FILE_3D_POINT_CLOUD_ANY,FILE_3D",
+          "link": 45
+        }
+      ],
+      "widgets_values": [
+        "3d/texto/pieza"
+      ],
+      "properties": {
+        "Node name for S&R": "SaveGLB"
+      },
+      "outputs": []
+    },
+    {
+      "id": 60,
+      "type": "VAELoader",
+      "pos": [
+        0,
+        1890
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 30,
+      "mode": 0,
+      "inputs": [],
+      "widgets_values": [
+        "trellis_2_texture_vae_bf16.safetensors"
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            58
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "type": "GetMeshInfo",
+      "pos": [
+        5320,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 31,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 46
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "GetMeshInfo"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            47
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "info",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "type": "ExoSolidificar",
+      "pos": [
+        5700,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 32,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 47
+        }
+      ],
+      "widgets_values": [
+        320,
+        1,
+        5
+      ],
+      "properties": {
+        "Node name for S&R": "ExoSolidificar"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            48
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "informe",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "type": "DecimateMesh",
+      "pos": [
+        6080,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 33,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 48
+        }
+      ],
+      "widgets_values": [
+        700000,
+        "midpoint"
+      ],
+      "properties": {
+        "Node name for S&R": "DecimateMesh"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            49
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "type": "MeshSmoothNormals",
+      "pos": [
+        6460,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 34,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 49
+        }
+      ],
+      "widgets_values": [
+        180.0
+      ],
+      "properties": {
+        "Node name for S&R": "MeshSmoothNormals"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            60,
+            63,
+            68
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 65,
+      "type": "Trellis2TextureStage",
+      "pos": [
+        4940,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 35,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 50
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 51
+        },
+        {
+          "name": "shape_latent",
+          "type": "LATENT",
+          "link": 52
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "Trellis2TextureStage"
+      },
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            54
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            55
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            56
+          ],
+          "slot_index": 2
+        }
+      ]
+    },
+    {
+      "id": 66,
+      "type": "KSampler",
+      "pos": [
+        5320,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 36,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 53
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 54
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 55
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 56
+        }
+      ],
+      "widgets_values": [
+        43,
+        "fixed",
+        12,
+        1.0,
+        "euler",
+        "normal",
+        1.0
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            57
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 67,
+      "type": "VaeDecodeTextureTrellis",
+      "pos": [
+        5700,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 37,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 57
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 58
+        },
+        {
+          "name": "shape_subdivides",
+          "type": "SHAPE_SUBDIVIDES",
+          "link": 59
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "VaeDecodeTextureTrellis"
+      },
+      "outputs": [
+        {
+          "name": "voxel_colors",
+          "type": "VOXEL",
+          "links": [
+            62,
+            69
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "type": "UnwrapMesh",
+      "pos": [
+        6840,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 38,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 60
+        }
+      ],
+      "widgets_values": [
+        "pec",
+        2048,
+        1,
+        0.0002
+      ],
+      "properties": {
+        "Node name for S&R": "UnwrapMesh"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            61,
+            64
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 69,
+      "type": "BakeTextureFromVoxel",
+      "pos": [
+        7220,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 39,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 61
+        },
+        {
+          "name": "voxel_colors",
+          "type": "VOXEL",
+          "link": 62
+        },
+        {
+          "name": "reference_mesh",
+          "type": "MESH",
+          "link": 63
+        }
+      ],
+      "widgets_values": [
+        2048
+      ],
+      "properties": {
+        "Node name for S&R": "BakeTextureFromVoxel"
+      },
+      "outputs": [
+        {
+          "name": "base_color",
+          "type": "IMAGE",
+          "links": [
+            65
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "metallic",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "roughness",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 2
+        }
+      ]
+    },
+    {
+      "id": 70,
+      "type": "ApplyTextureToMesh",
+      "pos": [
+        7600,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 40,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 64
+        },
+        {
+          "name": "base_color",
+          "type": "IMAGE",
+          "link": 65
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "ApplyTextureToMesh"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            66
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "type": "MeshToFile3D",
+      "pos": [
+        7980,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 41,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 66
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "MeshToFile3D"
+      },
+      "outputs": [
+        {
+          "name": "model_3d",
+          "type": "FILE_3D_GLB",
+          "links": [
+            67
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 72,
+      "type": "Save3DAdvanced",
+      "pos": [
+        8360,
+        0
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 42,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model_3d",
+          "type": "FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_FBX,FILE_3D_OBJ,FILE_3D_STL,FILE_3D_USDZ,FILE_3D",
+          "link": 67
+        },
+        {
+          "name": "viewport_state",
+          "type": "LOAD_3D",
+          "link": null
+        }
+      ],
+      "widgets_values": [
+        "3d/texto/pieza_textura",
+        1024,
+        1024
+      ],
+      "properties": {
+        "Node name for S&R": "Save3DAdvanced"
+      },
+      "outputs": [
+        {
+          "name": "model_3d",
+          "type": "FILE_3D",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "model_3d_info",
+          "type": "LOAD3D_MODEL_INFO",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "camera_info",
+          "type": "LOAD3D_CAMERA",
+          "links": [],
+          "slot_index": 2
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [],
+          "slot_index": 3
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [],
+          "slot_index": 4
+        }
+      ]
+    },
+    {
+      "id": 73,
+      "type": "PaintMesh",
+      "pos": [
+        6840,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 43,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 68
+        },
+        {
+          "name": "voxel_colors",
+          "type": "VOXEL",
+          "link": 69
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "PaintMesh"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            70,
+            72
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 74,
+      "type": "MeshToFile3D",
+      "pos": [
+        7220,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 44,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 70
+        }
+      ],
+      "widgets_values": [],
+      "properties": {
+        "Node name for S&R": "MeshToFile3D"
+      },
+      "outputs": [
+        {
+          "name": "model_3d",
+          "type": "FILE_3D_GLB",
+          "links": [
+            71
+          ],
+          "slot_index": 0
+        }
+      ]
+    },
+    {
+      "id": 75,
+      "type": "Save3DAdvanced",
+      "pos": [
+        7600,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 45,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model_3d",
+          "type": "FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_FBX,FILE_3D_OBJ,FILE_3D_STL,FILE_3D_USDZ,FILE_3D",
+          "link": 71
+        },
+        {
+          "name": "viewport_state",
+          "type": "LOAD_3D",
+          "link": null
+        }
+      ],
+      "widgets_values": [
+        "3d/texto/pieza_vertices",
+        1024,
+        1024
+      ],
+      "properties": {
+        "Node name for S&R": "Save3DAdvanced"
+      },
+      "outputs": [
+        {
+          "name": "model_3d",
+          "type": "FILE_3D",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "model_3d_info",
+          "type": "LOAD3D_MODEL_INFO",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "camera_info",
+          "type": "LOAD3D_CAMERA",
+          "links": [],
+          "slot_index": 2
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [],
+          "slot_index": 3
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [],
+          "slot_index": 4
+        }
+      ]
+    },
+    {
+      "id": 200,
+      "type": "ExoPaletaFilamentos",
+      "pos": [
+        7220,
+        420
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 46,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 72
+        }
+      ],
+      "widgets_values": [
+        "",
+        4,
+        0.25,
+        0.3,
+        3
+      ],
+      "properties": {
+        "Node name for S&R": "ExoPaletaFilamentos"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            73
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "informe",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        }
+      ]
+    },
+    {
+      "id": 201,
+      "type": "ExoInformeImpresion",
+      "pos": [
+        7600,
+        420
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 47,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 73
+        }
+      ],
+      "widgets_values": [
+        80.0,
+        "PLA",
+        15.0,
+        1.2
+      ],
+      "properties": {
+        "Node name for S&R": "ExoInformeImpresion"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            74
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "informe",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "peso_g",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 2
+        }
+      ]
+    },
+    {
+      "id": 202,
+      "type": "ExoRevisarGrosor",
+      "pos": [
+        7980,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 48,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 74
+        }
+      ],
+      "widgets_values": [
+        1.2,
+        5.0,
+        4000
+      ],
+      "properties": {
+        "Node name for S&R": "ExoRevisarGrosor"
+      },
+      "outputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "links": [
+            75,
+            76
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "informe",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "pct_zonas_finas",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 2
+        }
+      ]
+    },
+    {
+      "id": 204,
+      "type": "ExoRevisarPieza",
+      "pos": [
+        8360,
+        420
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 49,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 75
+        }
+      ],
+      "widgets_values": [
+        "",
+        448
+      ],
+      "properties": {
+        "Node name for S&R": "ExoRevisarPieza"
+      },
+      "outputs": [
+        {
+          "name": "vistas",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "informe",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "apto",
+          "type": "BOOLEAN",
+          "links": [],
+          "slot_index": 2
+        },
+        {
+          "name": "puntuacion",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 3
+        }
+      ]
+    },
+    {
+      "id": 203,
+      "type": "ExoGuardarImpresion",
+      "pos": [
+        8360,
+        210
+      ],
+      "size": [
+        330,
+        120
+      ],
+      "flags": {},
+      "order": 50,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mesh",
+          "type": "MESH",
+          "link": 76
+        }
+      ],
+      "widgets_values": [
+        "texto/pieza",
+        true,
+        true
+      ],
+      "properties": {
+        "Node name for S&R": "ExoGuardarImpresion"
+      },
+      "outputs": [
+        {
+          "name": "rutas",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 0
+        }
+      ]
     }
-   ]
-  },
-  {
-   "id": 1,
-   "type": "UnetLoaderGGUF",
-   "pos": [
-    0,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 1,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "qwen-image-2.1-UC-Q8_0.gguf"
-   ],
-   "properties": {
-    "Node name for S&R": "UnetLoaderGGUF"
-   },
-   "outputs": [
-    {
-     "name": "MODEL",
-     "type": "MODEL",
-     "links": [
-      4
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 2,
-   "type": "CLIPLoader",
-   "pos": [
-    0,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 2,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "qwen3vl_8b_int8_convrot.safetensors",
-    "qwen_image",
-    "default"
-   ],
-   "properties": {
-    "Node name for S&R": "CLIPLoader"
-   },
-   "outputs": [
-    {
-     "name": "CLIP",
-     "type": "CLIP",
-     "links": [
-      1
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 3,
-   "type": "VAELoader",
-   "pos": [
-    0,
-    420
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 3,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "qwen_image_2.1_vae_bf16.safetensors"
-   ],
-   "properties": {
-    "Node name for S&R": "VAELoader"
-   },
-   "outputs": [
-    {
-     "name": "VAE",
-     "type": "VAE",
-     "links": [
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      4,
+      0,
+      "CLIP"
+    ],
+    [
+      2,
+      8,
+      0,
+      4,
+      1,
+      "STRING"
+    ],
+    [
       3,
-      9
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 4,
-   "type": "TextEncodeQwenImage21",
-   "pos": [
-    380,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 4,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "clip",
-     "type": "CLIP",
-     "link": 1
-    },
-    {
-     "name": "prompt",
-     "type": "STRING",
-     "link": 2,
-     "widget": {
-      "name": "prompt"
-     }
-    },
-    {
-     "name": "vae",
-     "type": "VAE",
-     "link": 3
-    }
-   ],
-   "widgets_values": [
-    "varios objetos, recortado, texto, marca de agua, fondo con cosas",
-    1024
-   ],
-   "properties": {
-    "Node name for S&R": "TextEncodeQwenImage21"
-   },
-   "outputs": [
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "links": [
-      5
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "links": [
-      6
-     ],
-     "slot_index": 1
-    },
-    {
-     "name": "latent",
-     "type": "LATENT",
-     "links": [],
-     "slot_index": 2
-    }
-   ]
-  },
-  {
-   "id": 5,
-   "type": "EmptyLatentImage",
-   "pos": [
-    0,
-    630
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 5,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    1024,
-    1024,
-    1
-   ],
-   "properties": {
-    "Node name for S&R": "EmptyLatentImage"
-   },
-   "outputs": [
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      7
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 6,
-   "type": "KSampler",
-   "pos": [
-    760,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 6,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 4
-    },
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "link": 5
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "link": 6
-    },
-    {
-     "name": "latent_image",
-     "type": "LATENT",
-     "link": 7
-    }
-   ],
-   "widgets_values": [
-    42,
-    "fixed",
-    25,
-    1.0,
-    "euler",
-    "simple",
-    1.0
-   ],
-   "properties": {
-    "Node name for S&R": "KSampler"
-   },
-   "outputs": [
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      8
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 7,
-   "type": "VAEDecode",
-   "pos": [
-    1140,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 7,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "samples",
-     "type": "LATENT",
-     "link": 8
-    },
-    {
-     "name": "vae",
-     "type": "VAE",
-     "link": 9
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "VAEDecode"
-   },
-   "outputs": [
-    {
-     "name": "IMAGE",
-     "type": "IMAGE",
-     "links": [
+      3,
+      0,
+      4,
+      2,
+      "VAE"
+    ],
+    [
+      4,
+      1,
+      0,
+      6,
+      0,
+      "MODEL"
+    ],
+    [
+      5,
+      4,
+      0,
+      6,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      6,
+      4,
+      1,
+      6,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      7,
+      5,
+      0,
+      6,
+      3,
+      "LATENT"
+    ],
+    [
+      8,
+      6,
+      0,
+      7,
+      0,
+      "LATENT"
+    ],
+    [
+      9,
+      3,
+      0,
+      7,
+      1,
+      "VAE"
+    ],
+    [
       10,
+      7,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      90,
+      0,
+      91,
+      0,
+      "BACKGROUND_REMOVAL"
+    ],
+    [
       12,
-      13
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 9,
-   "type": "SaveImage",
-   "pos": [
-    1520,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 8,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "link": 10
-    }
-   ],
-   "widgets_values": [
-    "qwen21/pieza"
-   ],
-   "properties": {
-    "Node name for S&R": "SaveImage"
-   },
-   "outputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "links": [],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 90,
-   "type": "LoadBackgroundRemovalModel",
-   "pos": [
-    0,
-    2100
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 9,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "birefnet.safetensors"
-   ],
-   "properties": {
-    "Node name for S&R": "LoadBackgroundRemovalModel"
-   },
-   "outputs": [
-    {
-     "name": "bg_model",
-     "type": "BACKGROUND_REMOVAL",
-     "links": [
-      11
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 91,
-   "type": "RemoveBackground",
-   "pos": [
-    1520,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 10,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "bg_removal_model",
-     "type": "BACKGROUND_REMOVAL",
-     "link": 11
-    },
-    {
-     "name": "image",
-     "type": "IMAGE",
-     "link": 12
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "RemoveBackground"
-   },
-   "outputs": [
-    {
-     "name": "mask",
-     "type": "MASK",
-     "links": [
-      14
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 92,
-   "type": "ImageCropToMask",
-   "pos": [
-    1900,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 11,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "link": 13
-    },
-    {
-     "name": "masks",
-     "type": "MASK",
-     "link": 14
-    }
-   ],
-   "widgets_values": [
-    1024,
-    1024,
-    1.05,
-    0,
-    "#FFFFFF"
-   ],
-   "properties": {
-    "Node name for S&R": "ImageCropToMask"
-   },
-   "outputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "links": [
-      16
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 10,
-   "type": "CLIPVisionLoader",
-   "pos": [
-    0,
-    1050
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 12,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "dino_v3_L_naf_fp32.safetensors"
-   ],
-   "properties": {
-    "Node name for S&R": "CLIPVisionLoader"
-   },
-   "outputs": [
-    {
-     "name": "CLIP_VISION",
-     "type": "CLIP_VISION",
-     "links": [
-      15
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 11,
-   "type": "VAELoader",
-   "pos": [
-    0,
-    1260
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 13,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "trellis_2_shape_vae_bf16.safetensors"
-   ],
-   "properties": {
-    "Node name for S&R": "VAELoader"
-   },
-   "outputs": [
-    {
-     "name": "VAE",
-     "type": "VAE",
-     "links": [
-      27,
-      38,
-      44
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 12,
-   "type": "UNETLoader",
-   "pos": [
-    0,
-    1470
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 14,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "trellis_2_int8_convrot.safetensors",
-    "default"
-   ],
-   "properties": {
-    "Node name for S&R": "UNETLoader"
-   },
-   "outputs": [
-    {
-     "name": "MODEL",
-     "type": "MODEL",
-     "links": [
+      7,
+      0,
+      91,
+      1,
+      "IMAGE"
+    ],
+    [
+      13,
+      7,
+      0,
+      92,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      91,
+      0,
+      92,
+      1,
+      "MASK"
+    ],
+    [
+      15,
+      10,
+      0,
+      13,
+      0,
+      "CLIP_VISION"
+    ],
+    [
+      16,
+      92,
+      0,
+      13,
+      1,
+      "IMAGE"
+    ],
+    [
       17,
+      12,
+      0,
       20,
-      53
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 13,
-   "type": "Trellis2Conditioning",
-   "pos": [
-    2280,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 15,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "clip_vision_model",
-     "type": "CLIP_VISION",
-     "link": 15
-    },
-    {
-     "name": "image",
-     "type": "IMAGE",
-     "link": 16
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "Trellis2Conditioning"
-   },
-   "outputs": [
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "links": [
+      0,
+      "MODEL"
+    ],
+    [
+      18,
+      20,
+      0,
+      21,
+      0,
+      "MODEL"
+    ],
+    [
+      19,
+      21,
+      0,
+      22,
+      0,
+      "MODEL"
+    ],
+    [
+      20,
+      12,
+      0,
       23,
-      28
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "links": [
+      0,
+      "MODEL"
+    ],
+    [
+      21,
+      23,
+      0,
       24,
-      29
-     ],
-     "slot_index": 1
-    }
-   ]
-  },
-  {
-   "id": 20,
-   "type": "CFGOverride",
-   "pos": [
-    380,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 16,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 17
-    }
-   ],
-   "widgets_values": [
-    1.0,
-    0.667,
-    1.0
-   ],
-   "properties": {
-    "Node name for S&R": "CFGOverride"
-   },
-   "outputs": [
-    {
-     "name": "MODEL",
-     "type": "MODEL",
-     "links": [
-      18
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 21,
-   "type": "RescaleCFG",
-   "pos": [
-    760,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 17,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 18
-    }
-   ],
-   "widgets_values": [
-    0.7
-   ],
-   "properties": {
-    "Node name for S&R": "RescaleCFG"
-   },
-   "outputs": [
-    {
-     "name": "MODEL",
-     "type": "MODEL",
-     "links": [
-      19
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 22,
-   "type": "ModelSamplingSD3",
-   "pos": [
-    1140,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 18,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 19
-    }
-   ],
-   "widgets_values": [
-    5.0
-   ],
-   "properties": {
-    "Node name for S&R": "ModelSamplingSD3"
-   },
-   "outputs": [
-    {
-     "name": "MODEL",
-     "type": "MODEL",
-     "links": [
-      22
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 23,
-   "type": "CFGOverride",
-   "pos": [
-    380,
-    420
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 19,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 20
-    }
-   ],
-   "widgets_values": [
-    1.0,
-    0.769,
-    1.0
-   ],
-   "properties": {
-    "Node name for S&R": "CFGOverride"
-   },
-   "outputs": [
-    {
-     "name": "MODEL",
-     "type": "MODEL",
-     "links": [
-      21
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 24,
-   "type": "RescaleCFG",
-   "pos": [
-    760,
-    420
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 20,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 21
-    }
-   ],
-   "widgets_values": [
-    0.5
-   ],
-   "properties": {
-    "Node name for S&R": "RescaleCFG"
-   },
-   "outputs": [
-    {
-     "name": "MODEL",
-     "type": "MODEL",
-     "links": [
+      0,
+      "MODEL"
+    ],
+    [
+      22,
+      22,
+      0,
       31,
-      39
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 30,
-   "type": "EmptyTrellis2LatentStructure",
-   "pos": [
-    0,
-    1680
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 21,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    1
-   ],
-   "properties": {
-    "Node name for S&R": "EmptyTrellis2LatentStructure"
-   },
-   "outputs": [
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      25
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 31,
-   "type": "KSampler",
-   "pos": [
-    2660,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 22,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 22
-    },
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "link": 23
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "link": 24
-    },
-    {
-     "name": "latent_image",
-     "type": "LATENT",
-     "link": 25
-    }
-   ],
-   "widgets_values": [
-    42,
-    "fixed",
-    12,
-    7.5,
-    "euler",
-    "normal",
-    1.0
-   ],
-   "properties": {
-    "Node name for S&R": "KSampler"
-   },
-   "outputs": [
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      26
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 32,
-   "type": "VaeDecodeStructureTrellis2",
-   "pos": [
-    3040,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 23,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "samples",
-     "type": "LATENT",
-     "link": 26
-    },
-    {
-     "name": "vae",
-     "type": "VAE",
-     "link": 27
-    }
-   ],
-   "widgets_values": [
-    "32"
-   ],
-   "properties": {
-    "Node name for S&R": "VaeDecodeStructureTrellis2"
-   },
-   "outputs": [
-    {
-     "name": "voxel",
-     "type": "VOXEL",
-     "links": [
-      30
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 33,
-   "type": "Trellis2ShapeStage",
-   "pos": [
-    3420,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 24,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "link": 28
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "link": 29
-    },
-    {
-     "name": "voxel",
-     "type": "VOXEL",
-     "link": 30
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "Trellis2ShapeStage"
-   },
-   "outputs": [
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "links": [
+      0,
+      "MODEL"
+    ],
+    [
+      23,
+      13,
+      0,
+      31,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      24,
+      13,
+      1,
+      31,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      25,
+      30,
+      0,
+      31,
+      3,
+      "LATENT"
+    ],
+    [
+      26,
+      31,
+      0,
       32,
-      35
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "links": [
+      0,
+      "LATENT"
+    ],
+    [
+      27,
+      11,
+      0,
+      32,
+      1,
+      "VAE"
+    ],
+    [
+      28,
+      13,
+      0,
       33,
-      36
-     ],
-     "slot_index": 1
-    },
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      34
-     ],
-     "slot_index": 2
-    }
-   ]
-  },
-  {
-   "id": 34,
-   "type": "KSampler",
-   "pos": [
-    3800,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 25,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 31
-    },
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "link": 32
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "link": 33
-    },
-    {
-     "name": "latent_image",
-     "type": "LATENT",
-     "link": 34
-    }
-   ],
-   "widgets_values": [
-    42,
-    "fixed",
-    20,
-    7.5,
-    "euler",
-    "normal",
-    1.0
-   ],
-   "properties": {
-    "Node name for S&R": "KSampler"
-   },
-   "outputs": [
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      37
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 35,
-   "type": "Trellis2UpsampleStage",
-   "pos": [
-    4180,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 26,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "link": 35
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "link": 36
-    },
-    {
-     "name": "shape_latent",
-     "type": "LATENT",
-     "link": 37
-    },
-    {
-     "name": "vae",
-     "type": "VAE",
-     "link": 38
-    }
-   ],
-   "widgets_values": [
-    "1536"
-   ],
-   "properties": {
-    "Node name for S&R": "Trellis2UpsampleStage"
-   },
-   "outputs": [
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "links": [
+      0,
+      "CONDITIONING"
+    ],
+    [
+      29,
+      13,
+      1,
+      33,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      30,
+      32,
+      0,
+      33,
+      2,
+      "VOXEL"
+    ],
+    [
+      31,
+      24,
+      0,
+      34,
+      0,
+      "MODEL"
+    ],
+    [
+      32,
+      33,
+      0,
+      34,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      33,
+      33,
+      1,
+      34,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      34,
+      33,
+      2,
+      34,
+      3,
+      "LATENT"
+    ],
+    [
+      35,
+      33,
+      0,
+      35,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      36,
+      33,
+      1,
+      35,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      37,
+      34,
+      0,
+      35,
+      2,
+      "LATENT"
+    ],
+    [
+      38,
+      11,
+      0,
+      35,
+      3,
+      "VAE"
+    ],
+    [
+      39,
+      24,
+      0,
+      36,
+      0,
+      "MODEL"
+    ],
+    [
       40,
-      50
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "links": [
+      35,
+      0,
+      36,
+      1,
+      "CONDITIONING"
+    ],
+    [
       41,
-      51
-     ],
-     "slot_index": 1
-    },
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      42
-     ],
-     "slot_index": 2
-    }
-   ]
-  },
-  {
-   "id": 36,
-   "type": "KSampler",
-   "pos": [
-    4560,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 27,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 39
-    },
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "link": 40
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "link": 41
-    },
-    {
-     "name": "latent_image",
-     "type": "LATENT",
-     "link": 42
-    }
-   ],
-   "widgets_values": [
-    42,
-    "fixed",
-    12,
-    7.5,
-    "euler",
-    "simple",
-    1.0
-   ],
-   "properties": {
-    "Node name for S&R": "KSampler"
-   },
-   "outputs": [
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
+      35,
+      1,
+      36,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      42,
+      35,
+      2,
+      36,
+      3,
+      "LATENT"
+    ],
+    [
       43,
-      52
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 37,
-   "type": "VaeDecodeShapeTrellis",
-   "pos": [
-    4940,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 28,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "samples",
-     "type": "LATENT",
-     "link": 43
-    },
-    {
-     "name": "vae",
-     "type": "VAE",
-     "link": 44
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "VaeDecodeShapeTrellis"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
+      36,
+      0,
+      37,
+      0,
+      "LATENT"
+    ],
+    [
+      44,
+      11,
+      0,
+      37,
+      1,
+      "VAE"
+    ],
+    [
       45,
-      46
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "shape_subdivides",
-     "type": "SHAPE_SUBDIVIDES",
-     "links": [
-      59
-     ],
-     "slot_index": 1
-    }
-   ]
-  },
-  {
-   "id": 82,
-   "type": "SaveGLB",
-   "pos": [
-    5320,
-    420
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 29,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH,FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_OBJ,FILE_3D_FBX,FILE_3D_STL,FILE_3D_USDZ,FILE_3D_PLY,FILE_3D_SPLAT,FILE_3D_SPZ,FILE_3D_KSPLAT,FILE_3D_SPLAT_ANY,FILE_3D_POINT_CLOUD_ANY,FILE_3D",
-     "link": 45
-    }
-   ],
-   "widgets_values": [
-    "3d/texto/pieza"
-   ],
-   "properties": {
-    "Node name for S&R": "SaveGLB"
-   },
-   "outputs": []
-  },
-  {
-   "id": 60,
-   "type": "VAELoader",
-   "pos": [
-    0,
-    1890
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 30,
-   "mode": 0,
-   "inputs": [],
-   "widgets_values": [
-    "trellis_2_texture_vae_bf16.safetensors"
-   ],
-   "properties": {
-    "Node name for S&R": "VAELoader"
-   },
-   "outputs": [
-    {
-     "name": "VAE",
-     "type": "VAE",
-     "links": [
-      58
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 61,
-   "type": "GetMeshInfo",
-   "pos": [
-    5320,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 31,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 46
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "GetMeshInfo"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
-      47
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "info",
-     "type": "STRING",
-     "links": [],
-     "slot_index": 1
-    }
-   ]
-  },
-  {
-   "id": 62,
-   "type": "ExoSolidificar",
-   "pos": [
-    5700,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 32,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 47
-    }
-   ],
-   "widgets_values": [
-    320,
-    1,
-    5
-   ],
-   "properties": {
-    "Node name for S&R": "ExoSolidificar"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
-      48
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "informe",
-     "type": "STRING",
-     "links": [],
-     "slot_index": 1
-    }
-   ]
-  },
-  {
-   "id": 63,
-   "type": "DecimateMesh",
-   "pos": [
-    6080,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 33,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 48
-    }
-   ],
-   "widgets_values": [
-    700000,
-    "midpoint"
-   ],
-   "properties": {
-    "Node name for S&R": "DecimateMesh"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
-      49
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 64,
-   "type": "MeshSmoothNormals",
-   "pos": [
-    6460,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 34,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 49
-    }
-   ],
-   "widgets_values": [
-    180.0
-   ],
-   "properties": {
-    "Node name for S&R": "MeshSmoothNormals"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
-      60,
-      63,
-      68
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 65,
-   "type": "Trellis2TextureStage",
-   "pos": [
-    4940,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 35,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "link": 50
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "link": 51
-    },
-    {
-     "name": "shape_latent",
-     "type": "LATENT",
-     "link": 52
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "Trellis2TextureStage"
-   },
-   "outputs": [
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "links": [
-      54
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "links": [
-      55
-     ],
-     "slot_index": 1
-    },
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      56
-     ],
-     "slot_index": 2
-    }
-   ]
-  },
-  {
-   "id": 66,
-   "type": "KSampler",
-   "pos": [
-    5320,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 36,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model",
-     "type": "MODEL",
-     "link": 53
-    },
-    {
-     "name": "positive",
-     "type": "CONDITIONING",
-     "link": 54
-    },
-    {
-     "name": "negative",
-     "type": "CONDITIONING",
-     "link": 55
-    },
-    {
-     "name": "latent_image",
-     "type": "LATENT",
-     "link": 56
-    }
-   ],
-   "widgets_values": [
-    43,
-    "fixed",
-    12,
-    1.0,
-    "euler",
-    "normal",
-    1.0
-   ],
-   "properties": {
-    "Node name for S&R": "KSampler"
-   },
-   "outputs": [
-    {
-     "name": "LATENT",
-     "type": "LATENT",
-     "links": [
-      57
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 67,
-   "type": "VaeDecodeTextureTrellis",
-   "pos": [
-    5700,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 37,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "samples",
-     "type": "LATENT",
-     "link": 57
-    },
-    {
-     "name": "vae",
-     "type": "VAE",
-     "link": 58
-    },
-    {
-     "name": "shape_subdivides",
-     "type": "SHAPE_SUBDIVIDES",
-     "link": 59
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "VaeDecodeTextureTrellis"
-   },
-   "outputs": [
-    {
-     "name": "voxel_colors",
-     "type": "VOXEL",
-     "links": [
-      62,
-      69
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 68,
-   "type": "UnwrapMesh",
-   "pos": [
-    6840,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 38,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 60
-    }
-   ],
-   "widgets_values": [
-    "pec",
-    2048,
-    1,
-    0.0002
-   ],
-   "properties": {
-    "Node name for S&R": "UnwrapMesh"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
+      37,
+      0,
+      82,
+      0,
+      "MESH,FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_OBJ,FILE_3D_FBX,FILE_3D_STL,FILE_3D_USDZ,FILE_3D_PLY,FILE_3D_SPLAT,FILE_3D_SPZ,FILE_3D_KSPLAT,FILE_3D_SPLAT_ANY,FILE_3D_POINT_CLOUD_ANY,FILE_3D"
+    ],
+    [
+      46,
+      37,
+      0,
       61,
-      64
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 69,
-   "type": "BakeTextureFromVoxel",
-   "pos": [
-    7220,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 39,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 61
-    },
-    {
-     "name": "voxel_colors",
-     "type": "VOXEL",
-     "link": 62
-    },
-    {
-     "name": "reference_mesh",
-     "type": "MESH",
-     "link": 63
-    }
-   ],
-   "widgets_values": [
-    2048
-   ],
-   "properties": {
-    "Node name for S&R": "BakeTextureFromVoxel"
-   },
-   "outputs": [
-    {
-     "name": "base_color",
-     "type": "IMAGE",
-     "links": [
-      65
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "metallic",
-     "type": "IMAGE",
-     "links": [],
-     "slot_index": 1
-    },
-    {
-     "name": "roughness",
-     "type": "IMAGE",
-     "links": [],
-     "slot_index": 2
-    }
-   ]
-  },
-  {
-   "id": 70,
-   "type": "ApplyTextureToMesh",
-   "pos": [
-    7600,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 40,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 64
-    },
-    {
-     "name": "base_color",
-     "type": "IMAGE",
-     "link": 65
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "ApplyTextureToMesh"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
-      66
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 71,
-   "type": "MeshToFile3D",
-   "pos": [
-    7980,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 41,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 66
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "MeshToFile3D"
-   },
-   "outputs": [
-    {
-     "name": "model_3d",
-     "type": "FILE_3D_GLB",
-     "links": [
-      67
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 72,
-   "type": "Save3DAdvanced",
-   "pos": [
-    8360,
-    0
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 42,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model_3d",
-     "type": "FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_FBX,FILE_3D_OBJ,FILE_3D_STL,FILE_3D_USDZ,FILE_3D",
-     "link": 67
-    },
-    {
-     "name": "viewport_state",
-     "type": "LOAD_3D",
-     "link": null
-    }
-   ],
-   "widgets_values": [
-    "3d/texto/pieza_textura",
-    1024,
-    1024
-   ],
-   "properties": {
-    "Node name for S&R": "Save3DAdvanced"
-   },
-   "outputs": [
-    {
-     "name": "model_3d",
-     "type": "FILE_3D",
-     "links": [],
-     "slot_index": 0
-    },
-    {
-     "name": "model_3d_info",
-     "type": "LOAD3D_MODEL_INFO",
-     "links": [],
-     "slot_index": 1
-    },
-    {
-     "name": "camera_info",
-     "type": "LOAD3D_CAMERA",
-     "links": [],
-     "slot_index": 2
-    },
-    {
-     "name": "width",
-     "type": "INT",
-     "links": [],
-     "slot_index": 3
-    },
-    {
-     "name": "height",
-     "type": "INT",
-     "links": [],
-     "slot_index": 4
-    }
-   ]
-  },
-  {
-   "id": 73,
-   "type": "PaintMesh",
-   "pos": [
-    6840,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 43,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 68
-    },
-    {
-     "name": "voxel_colors",
-     "type": "VOXEL",
-     "link": 69
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "PaintMesh"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
+      0,
+      "MESH"
+    ],
+    [
+      47,
+      61,
+      0,
+      62,
+      0,
+      "MESH"
+    ],
+    [
+      48,
+      62,
+      0,
+      63,
+      0,
+      "MESH"
+    ],
+    [
+      49,
+      63,
+      0,
+      64,
+      0,
+      "MESH"
+    ],
+    [
+      50,
+      35,
+      0,
+      65,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      51,
+      35,
+      1,
+      65,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      52,
+      36,
+      0,
+      65,
+      2,
+      "LATENT"
+    ],
+    [
+      53,
+      12,
+      0,
+      66,
+      0,
+      "MODEL"
+    ],
+    [
+      54,
+      65,
+      0,
+      66,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      55,
+      65,
+      1,
+      66,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      56,
+      65,
+      2,
+      66,
+      3,
+      "LATENT"
+    ],
+    [
+      57,
+      66,
+      0,
+      67,
+      0,
+      "LATENT"
+    ],
+    [
+      58,
+      60,
+      0,
+      67,
+      1,
+      "VAE"
+    ],
+    [
+      59,
+      37,
+      1,
+      67,
+      2,
+      "SHAPE_SUBDIVIDES"
+    ],
+    [
+      60,
+      64,
+      0,
+      68,
+      0,
+      "MESH"
+    ],
+    [
+      61,
+      68,
+      0,
+      69,
+      0,
+      "MESH"
+    ],
+    [
+      62,
+      67,
+      0,
+      69,
+      1,
+      "VOXEL"
+    ],
+    [
+      63,
+      64,
+      0,
+      69,
+      2,
+      "MESH"
+    ],
+    [
+      64,
+      68,
+      0,
       70,
-      72
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 74,
-   "type": "MeshToFile3D",
-   "pos": [
-    7220,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 44,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 70
-    }
-   ],
-   "widgets_values": [],
-   "properties": {
-    "Node name for S&R": "MeshToFile3D"
-   },
-   "outputs": [
-    {
-     "name": "model_3d",
-     "type": "FILE_3D_GLB",
-     "links": [
-      71
-     ],
-     "slot_index": 0
-    }
-   ]
-  },
-  {
-   "id": 75,
-   "type": "Save3DAdvanced",
-   "pos": [
-    7600,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 45,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "model_3d",
-     "type": "FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_FBX,FILE_3D_OBJ,FILE_3D_STL,FILE_3D_USDZ,FILE_3D",
-     "link": 71
-    },
-    {
-     "name": "viewport_state",
-     "type": "LOAD_3D",
-     "link": null
-    }
-   ],
-   "widgets_values": [
-    "3d/texto/pieza_vertices",
-    1024,
-    1024
-   ],
-   "properties": {
-    "Node name for S&R": "Save3DAdvanced"
-   },
-   "outputs": [
-    {
-     "name": "model_3d",
-     "type": "FILE_3D",
-     "links": [],
-     "slot_index": 0
-    },
-    {
-     "name": "model_3d_info",
-     "type": "LOAD3D_MODEL_INFO",
-     "links": [],
-     "slot_index": 1
-    },
-    {
-     "name": "camera_info",
-     "type": "LOAD3D_CAMERA",
-     "links": [],
-     "slot_index": 2
-    },
-    {
-     "name": "width",
-     "type": "INT",
-     "links": [],
-     "slot_index": 3
-    },
-    {
-     "name": "height",
-     "type": "INT",
-     "links": [],
-     "slot_index": 4
-    }
-   ]
-  },
-  {
-   "id": 200,
-   "type": "ExoPaletaFilamentos",
-   "pos": [
-    7220,
-    420
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 46,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 72
-    }
-   ],
-   "widgets_values": [
-    "",
-    4,
-    0.25,
-    0.3,
-    3
-   ],
-   "properties": {
-    "Node name for S&R": "ExoPaletaFilamentos"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
-      73
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "informe",
-     "type": "STRING",
-     "links": [],
-     "slot_index": 1
-    }
-   ]
-  },
-  {
-   "id": 201,
-   "type": "ExoInformeImpresion",
-   "pos": [
-    7600,
-    420
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 47,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 73
-    }
-   ],
-   "widgets_values": [
-    80.0,
-    "PLA",
-    15.0,
-    1.2
-   ],
-   "properties": {
-    "Node name for S&R": "ExoInformeImpresion"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
-      74
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "informe",
-     "type": "STRING",
-     "links": [],
-     "slot_index": 1
-    },
-    {
-     "name": "peso_g",
-     "type": "FLOAT",
-     "links": [],
-     "slot_index": 2
-    }
-   ]
-  },
-  {
-   "id": 202,
-   "type": "ExoRevisarGrosor",
-   "pos": [
-    7980,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 48,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 74
-    }
-   ],
-   "widgets_values": [
-    1.2,
-    5.0,
-    4000
-   ],
-   "properties": {
-    "Node name for S&R": "ExoRevisarGrosor"
-   },
-   "outputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "links": [
+      0,
+      "MESH"
+    ],
+    [
+      65,
+      69,
+      0,
+      70,
+      1,
+      "IMAGE"
+    ],
+    [
+      66,
+      70,
+      0,
+      71,
+      0,
+      "MESH"
+    ],
+    [
+      67,
+      71,
+      0,
+      72,
+      0,
+      "FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_FBX,FILE_3D_OBJ,FILE_3D_STL,FILE_3D_USDZ,FILE_3D"
+    ],
+    [
+      68,
+      64,
+      0,
+      73,
+      0,
+      "MESH"
+    ],
+    [
+      69,
+      67,
+      0,
+      73,
+      1,
+      "VOXEL"
+    ],
+    [
+      70,
+      73,
+      0,
+      74,
+      0,
+      "MESH"
+    ],
+    [
+      71,
+      74,
+      0,
       75,
-      76
-     ],
-     "slot_index": 0
-    },
-    {
-     "name": "informe",
-     "type": "STRING",
-     "links": [],
-     "slot_index": 1
-    },
-    {
-     "name": "pct_zonas_finas",
-     "type": "FLOAT",
-     "links": [],
-     "slot_index": 2
-    }
-   ]
-  },
-  {
-   "id": 204,
-   "type": "ExoRevisarPieza",
-   "pos": [
-    8360,
-    420
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 49,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 75
-    }
-   ],
-   "widgets_values": [
-    "",
-    448
-   ],
-   "properties": {
-    "Node name for S&R": "ExoRevisarPieza"
-   },
-   "outputs": [
-    {
-     "name": "vistas",
-     "type": "IMAGE",
-     "links": [],
-     "slot_index": 0
-    },
-    {
-     "name": "informe",
-     "type": "STRING",
-     "links": [],
-     "slot_index": 1
-    },
-    {
-     "name": "apto",
-     "type": "BOOLEAN",
-     "links": [],
-     "slot_index": 2
-    },
-    {
-     "name": "puntuacion",
-     "type": "FLOAT",
-     "links": [],
-     "slot_index": 3
-    }
-   ]
-  },
-  {
-   "id": 203,
-   "type": "ExoGuardarImpresion",
-   "pos": [
-    8360,
-    210
-   ],
-   "size": [
-    330,
-    120
-   ],
-   "flags": {},
-   "order": 50,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "mesh",
-     "type": "MESH",
-     "link": 76
-    }
-   ],
-   "widgets_values": [
-    "texto/pieza",
-    true,
-    true
-   ],
-   "properties": {
-    "Node name for S&R": "ExoGuardarImpresion"
-   },
-   "outputs": [
-    {
-     "name": "rutas",
-     "type": "STRING",
-     "links": [],
-     "slot_index": 0
-    }
-   ]
-  }
- ],
- "links": [
-  [
-   1,
-   2,
-   0,
-   4,
-   0,
-   "CLIP"
-  ],
-  [
-   2,
-   8,
-   0,
-   4,
-   1,
-   "STRING"
-  ],
-  [
-   3,
-   3,
-   0,
-   4,
-   2,
-   "VAE"
-  ],
-  [
-   4,
-   1,
-   0,
-   6,
-   0,
-   "MODEL"
-  ],
-  [
-   5,
-   4,
-   0,
-   6,
-   1,
-   "CONDITIONING"
-  ],
-  [
-   6,
-   4,
-   1,
-   6,
-   2,
-   "CONDITIONING"
-  ],
-  [
-   7,
-   5,
-   0,
-   6,
-   3,
-   "LATENT"
-  ],
-  [
-   8,
-   6,
-   0,
-   7,
-   0,
-   "LATENT"
-  ],
-  [
-   9,
-   3,
-   0,
-   7,
-   1,
-   "VAE"
-  ],
-  [
-   10,
-   7,
-   0,
-   9,
-   0,
-   "IMAGE"
-  ],
-  [
-   11,
-   90,
-   0,
-   91,
-   0,
-   "BACKGROUND_REMOVAL"
-  ],
-  [
-   12,
-   7,
-   0,
-   91,
-   1,
-   "IMAGE"
-  ],
-  [
-   13,
-   7,
-   0,
-   92,
-   0,
-   "IMAGE"
-  ],
-  [
-   14,
-   91,
-   0,
-   92,
-   1,
-   "MASK"
-  ],
-  [
-   15,
-   10,
-   0,
-   13,
-   0,
-   "CLIP_VISION"
-  ],
-  [
-   16,
-   92,
-   0,
-   13,
-   1,
-   "IMAGE"
-  ],
-  [
-   17,
-   12,
-   0,
-   20,
-   0,
-   "MODEL"
-  ],
-  [
-   18,
-   20,
-   0,
-   21,
-   0,
-   "MODEL"
-  ],
-  [
-   19,
-   21,
-   0,
-   22,
-   0,
-   "MODEL"
-  ],
-  [
-   20,
-   12,
-   0,
-   23,
-   0,
-   "MODEL"
-  ],
-  [
-   21,
-   23,
-   0,
-   24,
-   0,
-   "MODEL"
-  ],
-  [
-   22,
-   22,
-   0,
-   31,
-   0,
-   "MODEL"
-  ],
-  [
-   23,
-   13,
-   0,
-   31,
-   1,
-   "CONDITIONING"
-  ],
-  [
-   24,
-   13,
-   1,
-   31,
-   2,
-   "CONDITIONING"
-  ],
-  [
-   25,
-   30,
-   0,
-   31,
-   3,
-   "LATENT"
-  ],
-  [
-   26,
-   31,
-   0,
-   32,
-   0,
-   "LATENT"
-  ],
-  [
-   27,
-   11,
-   0,
-   32,
-   1,
-   "VAE"
-  ],
-  [
-   28,
-   13,
-   0,
-   33,
-   0,
-   "CONDITIONING"
-  ],
-  [
-   29,
-   13,
-   1,
-   33,
-   1,
-   "CONDITIONING"
-  ],
-  [
-   30,
-   32,
-   0,
-   33,
-   2,
-   "VOXEL"
-  ],
-  [
-   31,
-   24,
-   0,
-   34,
-   0,
-   "MODEL"
-  ],
-  [
-   32,
-   33,
-   0,
-   34,
-   1,
-   "CONDITIONING"
-  ],
-  [
-   33,
-   33,
-   1,
-   34,
-   2,
-   "CONDITIONING"
-  ],
-  [
-   34,
-   33,
-   2,
-   34,
-   3,
-   "LATENT"
-  ],
-  [
-   35,
-   33,
-   0,
-   35,
-   0,
-   "CONDITIONING"
-  ],
-  [
-   36,
-   33,
-   1,
-   35,
-   1,
-   "CONDITIONING"
-  ],
-  [
-   37,
-   34,
-   0,
-   35,
-   2,
-   "LATENT"
-  ],
-  [
-   38,
-   11,
-   0,
-   35,
-   3,
-   "VAE"
-  ],
-  [
-   39,
-   24,
-   0,
-   36,
-   0,
-   "MODEL"
-  ],
-  [
-   40,
-   35,
-   0,
-   36,
-   1,
-   "CONDITIONING"
-  ],
-  [
-   41,
-   35,
-   1,
-   36,
-   2,
-   "CONDITIONING"
-  ],
-  [
-   42,
-   35,
-   2,
-   36,
-   3,
-   "LATENT"
-  ],
-  [
-   43,
-   36,
-   0,
-   37,
-   0,
-   "LATENT"
-  ],
-  [
-   44,
-   11,
-   0,
-   37,
-   1,
-   "VAE"
-  ],
-  [
-   45,
-   37,
-   0,
-   82,
-   0,
-   "MESH,FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_OBJ,FILE_3D_FBX,FILE_3D_STL,FILE_3D_USDZ,FILE_3D_PLY,FILE_3D_SPLAT,FILE_3D_SPZ,FILE_3D_KSPLAT,FILE_3D_SPLAT_ANY,FILE_3D_POINT_CLOUD_ANY,FILE_3D"
-  ],
-  [
-   46,
-   37,
-   0,
-   61,
-   0,
-   "MESH"
-  ],
-  [
-   47,
-   61,
-   0,
-   62,
-   0,
-   "MESH"
-  ],
-  [
-   48,
-   62,
-   0,
-   63,
-   0,
-   "MESH"
-  ],
-  [
-   49,
-   63,
-   0,
-   64,
-   0,
-   "MESH"
-  ],
-  [
-   50,
-   35,
-   0,
-   65,
-   0,
-   "CONDITIONING"
-  ],
-  [
-   51,
-   35,
-   1,
-   65,
-   1,
-   "CONDITIONING"
-  ],
-  [
-   52,
-   36,
-   0,
-   65,
-   2,
-   "LATENT"
-  ],
-  [
-   53,
-   12,
-   0,
-   66,
-   0,
-   "MODEL"
-  ],
-  [
-   54,
-   65,
-   0,
-   66,
-   1,
-   "CONDITIONING"
-  ],
-  [
-   55,
-   65,
-   1,
-   66,
-   2,
-   "CONDITIONING"
-  ],
-  [
-   56,
-   65,
-   2,
-   66,
-   3,
-   "LATENT"
-  ],
-  [
-   57,
-   66,
-   0,
-   67,
-   0,
-   "LATENT"
-  ],
-  [
-   58,
-   60,
-   0,
-   67,
-   1,
-   "VAE"
-  ],
-  [
-   59,
-   37,
-   1,
-   67,
-   2,
-   "SHAPE_SUBDIVIDES"
-  ],
-  [
-   60,
-   64,
-   0,
-   68,
-   0,
-   "MESH"
-  ],
-  [
-   61,
-   68,
-   0,
-   69,
-   0,
-   "MESH"
-  ],
-  [
-   62,
-   67,
-   0,
-   69,
-   1,
-   "VOXEL"
-  ],
-  [
-   63,
-   64,
-   0,
-   69,
-   2,
-   "MESH"
-  ],
-  [
-   64,
-   68,
-   0,
-   70,
-   0,
-   "MESH"
-  ],
-  [
-   65,
-   69,
-   0,
-   70,
-   1,
-   "IMAGE"
-  ],
-  [
-   66,
-   70,
-   0,
-   71,
-   0,
-   "MESH"
-  ],
-  [
-   67,
-   71,
-   0,
-   72,
-   0,
-   "FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_FBX,FILE_3D_OBJ,FILE_3D_STL,FILE_3D_USDZ,FILE_3D"
-  ],
-  [
-   68,
-   64,
-   0,
-   73,
-   0,
-   "MESH"
-  ],
-  [
-   69,
-   67,
-   0,
-   73,
-   1,
-   "VOXEL"
-  ],
-  [
-   70,
-   73,
-   0,
-   74,
-   0,
-   "MESH"
-  ],
-  [
-   71,
-   74,
-   0,
-   75,
-   0,
-   "FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_FBX,FILE_3D_OBJ,FILE_3D_STL,FILE_3D_USDZ,FILE_3D"
-  ],
-  [
-   72,
-   73,
-   0,
-   200,
-   0,
-   "MESH"
-  ],
-  [
-   73,
-   200,
-   0,
-   201,
-   0,
-   "MESH"
-  ],
-  [
-   74,
-   201,
-   0,
-   202,
-   0,
-   "MESH"
-  ],
-  [
-   75,
-   202,
-   0,
-   204,
-   0,
-   "MESH"
-  ],
-  [
-   76,
-   202,
-   0,
-   203,
-   0,
-   "MESH"
-  ]
- ],
- "groups": [],
- "config": {},
- "extra": {},
- "version": 0.4
+      0,
+      "FILE_3D_GLB,FILE_3D_GLTF,FILE_3D_FBX,FILE_3D_OBJ,FILE_3D_STL,FILE_3D_USDZ,FILE_3D"
+    ],
+    [
+      72,
+      73,
+      0,
+      200,
+      0,
+      "MESH"
+    ],
+    [
+      73,
+      200,
+      0,
+      201,
+      0,
+      "MESH"
+    ],
+    [
+      74,
+      201,
+      0,
+      202,
+      0,
+      "MESH"
+    ],
+    [
+      75,
+      202,
+      0,
+      204,
+      0,
+      "MESH"
+    ],
+    [
+      76,
+      202,
+      0,
+      203,
+      0,
+      "MESH"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
 }

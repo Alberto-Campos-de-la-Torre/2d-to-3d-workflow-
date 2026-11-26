@@ -1,4 +1,4 @@
-﻿"""Gira piezas ya guardadas de Y arriba a Z arriba, para que entren de pie en el laminador.
+"""Gira piezas ya guardadas de Y arriba a Z arriba, para que entren de pie en el laminador.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\poner_de_pie.py <carpeta o archivo>
 

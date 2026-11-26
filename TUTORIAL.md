@@ -1,8 +1,12 @@
+> Instalacion modular: consulta primero [README.md](README.md) y elige perfil 2D,
+> 3D o ambos con `instalar.py`. Las rutas fijas y el copiado manual que aparecen
+> mas abajo corresponden al montaje anterior, conservado como referencia de taller.
+
 # Tutorial: de una idea a una pieza impresa
 
 Guia de taller. Para los comandos sueltos y las opciones finas, ver `FLUJO.md`.
 
-Arrancar siempre con **`D:\AI3D\Iniciar_ComfyUI_3D.bat`** y abrir `http://127.0.0.1:8188`.
+Arrancar siempre con **`D:\AI3D\Iniciar_ComfyUI_3D.bat`** y abrir `http://localhost:8188`.
 
 ---
 
@@ -99,13 +103,14 @@ Quedan en `output\final\` (o donde diga el nodo *Guardar para imprimir*):
 - **`.obj` + `.mtl`** para multicolor. **Los dos archivos van juntos.**
 
 En Creality Print 6.3, al importar el OBJ sale el dialogo *Obj file Import color*:
-pulsa **Color match** antes de aceptar. Si no lo haces, anade los colores como filamentos
-5, 6, 7, 8... que la maquina no tiene, y el pintado no se aplica.
+asigna cada material a una plaza distinta del CFS (1 a 4). **Color match** puede
+asignar varios colores a una misma bobina; revisa el mapa antes de aceptar.
+Conserva el MTL junto al OBJ y verifica el pintado en la vista laminada.
 
 ### 5. Antes de cobrar
 
-Mira la pieza en el laminador. El sistema garantiza que **se puede imprimir**, no que
-**se parezca** a lo que pidio el cliente. Ese juicio es tuyo, y es justo lo que se cobra
+Mira la pieza en el laminador. Las comprobaciones del sistema ayudan a detectar defectos; confirma
+soportes, paredes, estabilidad y resultado en el laminador y con una prueba fisica. Ese juicio es tuyo, y es justo lo que se cobra
 como retoque.
 
 ---
@@ -397,11 +402,11 @@ Hay dos lanzadores, y la diferencia importa:
 
 | Archivo | Quien puede entrar |
 |---|---|
-| `Iniciar_ComfyUI_3D.bat` | solo este PC (127.0.0.1). Es el de siempre. |
+| `Iniciar_ComfyUI_3D.bat` | solo este PC (localhost). Es el de siempre. |
 | `Iniciar_ComfyUI_LAN.bat` | cualquier equipo de tu red local: moviles, tablets, otros PC. |
 
-El de red escucha en `0.0.0.0:8188` y, al arrancar, **imprime las direcciones** a las que
-entrar desde el movil. Si sale mas de una, prueba la de tu wifi.
+El de red escucha en todas las interfaces. Desde el movil, usa el nombre de red
+del PC y el puerto configurado, seguido de `/exo/estudio` o `/exo/pieza`.
 
 **Falta un paso que solo puedes dar tu**, porque necesita permisos de administrador: abrir
 el puerto en el cortafuegos de Windows. Se hace una vez. En PowerShell **como
@@ -537,7 +542,7 @@ iniciar sesion, que ejecute `python_embeded\python.exe` con `scripts\vigilante.p
 | Muchas `zonas finas` | Sube `altura_mm`: el grosor crece con el tamano de la pieza. |
 | Sin peso en el informe | La malla llego abierta; revisa que *Solidificar* este antes. |
 | Se queda sin memoria al hornear textura | Baja el tamano de textura a 1024 px. |
-| Los colores no se aplican en Creality | Olvidaste **Color match** al importar el OBJ. |
+| Los colores no se aplican en Creality | Revisar MTL, mapa a las plazas 1 a 4 y topologia del OBJ. |
 | El archivo pesa 33 MB | Normal: son 700.000 caras. Se puede bajar sin perder calidad de impresion. |
 | La pieza sale escalonada, como con curvas de nivel | Son los escalones de la rejilla. Sube **`suavizar_forma`** en *Solidificar malla* (5 por defecto; hasta 8). Es lo que mas se nota y no cuesta tiempo. Solo si se pierde detalle fino, sube tambien `resolucion`. |
 | Se pierde detalle pequeno | Sube **`resolucion`**. El escalon mide `altura_mm / resolucion`, asi que la regla es `resolucion = altura_mm x 4`: 80 mm -> 320, 150 mm -> 600. Cuesta tiempo y caras: de 320 a 640 el archivo se cuadruplica. |
@@ -552,3 +557,178 @@ Rechaza estos encargos o cotizalos como modelado manual, no como generacion:
 - Objetos de vidrio o transparentes.
 - Ilustraciones planas, si el cliente espera color fiel.
 - Cualquier cosa con marca registrada: el riesgo legal es tuyo.
+
+
+### Proteccion de presupuestos y archivos
+
+Los presupuestos rechazan numeros no finitos, cantidades negativas y ritmo o multiplicador de precio cero. Los encargos tienen un identificador unico y conservan en `archivos/` las rutas relativas de OBJ, MTL y texturas; una dependencia ausente impide el archivado. La limpieza conserva conjuntos completos (incluidas dependencias compartidas), respeta `encargos/` y no sigue enlaces fuera de la carpeta. `--conservar` cuenta conjuntos. Pruebas: `python scripts/pruebas/probar_robustez.py`.
+
+
+### Plan de impresion para K2 Plus + CFS (diagnostico)
+
+En `/exo/pieza`, el bloque **Plan de impresion** compara entero multicolor, separado por color e hibrido. Configuracion inicial: K2 Plus, cama 350 x 350 x 350 mm, CFS con 4 filamentos y capa de 0.2 mm. Cambia la capacidad si hay mas unidades CFS. La version instalada de Creality Print sigue pendiente de confirmar.
+
+Las nuevas conversiones incluyen el nodo `ExoPlanImpresion`, su informe y un JSON descargable que se conserva al guardar el encargo. Tambien puedes seleccionar un OBJ ya generado y pulsar **Analizar complejidad**, sin regenerarlo. Se procesa una malla a la vez; limite 800000 caras y 160 MB para OBJ.
+
+El analisis mide superficie por color, conectividad y presencia de colores por intervalos de altura. La asignacion aproximada usa hasta 8 colores y la primera esquina de cada triangulo, como la exportacion OBJ actual. Una region de al menos 3 % de superficie y dos dimensiones de al menos 2 mm es candidata a *revisar*, no una pieza automaticamente separable: no mide su espesor ni reconoce cabeza, pelo o manos. No hace cortes, encajes o vista explosionada. Las regiones pequenas se mantienen como detalles a revisar. Los indicadores de capas NO son cambios reales de filamento ni garantizan ahorro. Purga, soportes, tiempo y precio quedan pendientes del perfil y del laminado real. TPU no se recomienda para alimentacion por CFS segun Creality.
+
+Documentacion oficial consultada:
+- [Pintado de regiones, relleno de huecos y laminado](https://www.creality.com/help/help-introduction-to-the-color-painting-feature)
+- [K2 Plus + CFS: materiales compatibles](https://forum.creality.com/t/creality-k2-plus-cfs-frequently-asked-questions-you-should-know/21698)
+- [Versiones de Creality Print y mejoras de purga](https://github.com/CrealityOfficial/CrealityPrint/releases)
+
+Verificacion: `python scripts/pruebas/probar_plan_impresion.py` (10 casos sinteticos). Incluye colores por altura, coexistencia lateral, detalles, regiones desconectadas, limite de filamentos, TPU, dimensiones e inputs invalidos. La comparacion real de coste queda para integrar el laminador; esta etapa solo recomienda que estrategias evaluar.
+
+
+### Separacion guiada por planos
+
+En `/exo/pieza`, selecciona una pieza en **Plan de impresion**, pulsa **Ver plano sobre la pieza** y ajusta eje y posicion (1 a 99 % de la dimension correspondiente). La proyeccion muestra hasta 5000 vertices; es orientativa, no una seleccion anatomica ni un visor de solidos. **Generar dos piezas cerradas** usa Manifold en un proceso separado con limite de 120 segundos. Se conserva el original. No se hacen encajes ni se rellenan cavidades deliberadamente.
+
+Solo se aceptan mallas triangulares cerradas manifold, de hasta 800000 caras y OBJ de hasta 160 MB. Los colores deben estar reducidos a 16 o menos. Se valida cierre y winding de las salidas y conservacion de volumen a 0.1 %. STL queda colocado sobre su cara de corte con coordenadas Z arriba; OBJ+MTL mantiene coordenadas de montaje Y arriba y paleta aproximada. `montaje.json` incluye transformaciones, dimensiones, componentes y advertencias. La carpeta completa se puede guardar como encargo y la limpieza la trata como un conjunto. Los componentes desconectados se reportan; dos mitades pueden contener mas de dos componentes fisicos. Debes laminar para verificar soportes, paredes, estabilidad, cama y montaje. Un corte global puede afectar varias partes del personaje.
+
+La prueba descubrio que los cinco OBJ anteriores contienen aristas no manifold pese a no tener bordes abiertos (entre 58 y 822). El corte los rechaza: esos modelos necesitan una reparacion topologica adicional antes de poder separarlos. No se presentan como piezas listas para ensamblar.
+
+Dependencias: `python -m pip install -r custom_nodes/exo_filaments/requirements.txt`. Pruebas: `python scripts/pruebas/probar_cortes.py`. Incluye 9 casos, con cavidad interna, winding incorrecto, componentes multiples, colores, volumen y proteccion frente a sobrescritura.
+
+Referencias tecnicas: [Manifold SplitByPlane](https://manifoldcad.org/docs/html/classmanifold_1_1_manifold.html), [Trimesh: winding y normales](https://trimesh.org/trimesh.repair.html).
+
+
+## Textura y exportacion CFS: control de fidelidad
+
+La textura generada y la paleta de impresion son pasos independientes. La vista previa
+conserva todo el color; OBJ/MTL exporta como maximo las plazas configuradas (4 por defecto).
+La paleta escrita por el usuario prevalece; se rechaza si supera el numero de plazas.
+La reduccion perceptual conserva la diferencia entre materiales claros y oscuros; no es
+una segmentacion anatomica. STL no guarda colores. Importar OBJ junto a su MTL en Creality
+Print y asignar los materiales a las bobinas del CFS; no se ha verificado este nuevo OBJ
+en el laminador durante esta correccion.
+
+En /exo/pieza se puede elegir una semilla de textura independiente de la geometria y
+entre 12 y 40 pasos. El revisor recibe la imagen original junto con las cuatro vistas,
+busca cambios graves de color y manchas, y si los detecta se reintenta solo la textura
+hasta dos veces con otras semillas. La geometria y sus parametros se mantienen; ComfyUI
+reutiliza su cache cuando sigue disponible. No se vuelve a guardar el GLB bruto en los
+reintentos. Si sigue fallando, se muestra un aviso de revision manual, no una aprobacion.
+Si el LLM no responde o no emite un veredicto, se indica color sin verificar.
+
+El boton Regenerar solo el color permite otro intento de una conversion con textura de
+la sesion actual. Tras reiniciar el servidor se pierde el historial de trabajos de esta
+interfaz; una regeneracion puede recalcular geometria si ya no esta en cache.
+
+Diagnostico del Funko probado: la semilla de textura 43 produjo la cara oscura tanto con
+12 como con 20 pasos. La semilla 44 recupero la familia de color piel con ambos valores.
+La forma, reparacion y asignacion de colores se mantuvieron identicas. El defecto aparece
+en el campo de textura generado, antes de UV/OBJ; el muestreo sobre la malla reparada lo
+acentua. No es un fallo de exportacion ni se arregla aumentando pasos. El nuevo tono de
+piel aun difiere de la iluminacion/color exactos de la referencia: revisar antes de cobrar
+una reproduccion fiel. Una transferencia alternativa desde puntos originales se probo,
+no corrigio el defecto y no se incorporo al flujo.
+
+Pruebas: scripts/pruebas/probar_exportacion_colores.py (limite/materiales/paleta) y
+scripts/pruebas/probar_reintentos_color.py (aprobado/reintento/limite/IA ausente).
+
+Correccion 2026-10-06: el OBJ usa materiales por cara y no duplica vertices para
+separar colores. Se normaliza la topologia con Manifold y se conserva la etiqueta
+de cada cara. Ka=0 evita que Creality 6.3 sume luz ambiental al color Kd.
+El Funko de prueba conserva 457.692 caras, cuatro materiales y medidas; el OBJ
+serializado tiene cero bordes abiertos y cero aristas con mas de dos caras.
+Ocho pruebas de exportacion pasaron. La importacion visual en Creality sigue pendiente.
+Los STL no conservan indices: contactos geometricos entre superficies pueden requerir
+revision adicional al soldar durante la importacion. No se garantiza su impresion.
+
+
+### Validacion real del juez y reintentos (2026-10-01)
+
+La API local respondio a texto y vision con el modelo multimodal configurado. El error
+previo de conexion fue causado por el proxy del entorno restringido del agente. No era
+un fallo del servidor LLM.
+
+Se ejecutaron seis texturas del Funko (semillas 43-48) mediante dos trabajos reales de la
+interfaz, incluida Regenerar solo el color. El juez detecto cambios de tono/manchas; ambos
+trabajos terminaron con color pendiente de revision tras dos reintentos, sin aprobar la
+pieza. La geometria fue identica en los seis grafos y se reutilizo en cache tras el primer
+ensayo. El control limpio de un cubo uniforme fue aprobado. Los OBJ de ambos trabajos
+conservaron medidas/caras y cuatro materiales/colores exactos. Pasaron 23 pruebas de
+regresion. Esto valida el control del pipeline, no la fidelidad de color del Funko: el
+resultado aun requiere correccion.
+
+Creality Print 6.3 leyo el OBJ en modo CLI como un objeto con un volumen, pero no se
+obtuvo una exportacion 3MF verificable ni una confirmacion visual de asignacion CFS.
+La herramienta de captura de ventanas fallo en dos intentos; los proyectos abiertos no
+se modificaron. La compatibilidad visual de la nueva exportacion sigue pendiente.
+
+
+### Detalle y color despues de reparar
+
+En `/exo/pieza`, **Detalle de reparacion** controla la rejilla de solidificacion:
+384 es el valor equilibrado; 448 y 512 conservan mas detalle y consumen mas RAM.
+TRELLIS sigue generando la forma a 1536; la reparacion es una etapa distinta.
+La superficie se reconstruye con marching cubes, en CPU, y dos pasadas de suavizado.
+Suavizar no recupera detalles perdidos por una rejilla demasiado gruesa.
+
+El nodo **Transferir color de superficie (Exo)** consulta primero la geometria original
+y despues su color. Esto evita recoger colores interiores cuando la reparacion desplaza
+la superficie. La reduccion a filamentos asigna cada cara por mayoria de sus vertices,
+sin inventar mezclas RGB en las fronteras. La textura usa 24 pasos por defecto.
+Una textura incorrecta de origen aun debe regenerarse: la transferencia no la corrige.
+
+El 3MF guarda pintura por filamento; se abre como proyecto en Creality Print.
+Un CFS con cuatro bobinas requiere reducir la imagen a cuatro colores: tonos adicionales
+de ropa, dientes o accesorios pueden desaparecer. La paleta no garantiza conservar cada
+detalle cromatico de la referencia. Revisar las vistas antes de imprimir.
+
+
+### Recuperar color de una referencia frontal
+
+En `/exo/pieza`, activa **Corregir colores con la foto frontal** cuando el modelo
+este alineado con una referencia frontal. La foto se proyecta sobre las caras visibles.
+**Completar manchas oscuras de los perfiles** extiende el tono de regiones conectadas
+cuando hay evidencia suficiente en la referencia. Los colores ocultos se infieren:
+revisa perfiles, cabello, cuello y prendas antes de imprimir. No usar esta opcion
+para fotos de perfil, poses diferentes o composiciones con varios sujetos.
+
+Selecciona cuatro filamentos para un CFS. La vista de impresion y el 3MF usan esa
+paleta; ropa multicolor y dientes pueden cambiar de tono al reducirla. El juez
+conserva la comparacion con la referencia y puede pedir revision de esos cambios.
+La correccion frontal no reemplaza una textura correcta para una presentacion
+a todo color. La exportacion coloreada incluye automaticamente un 3MF; abrirlo
+como proyecto en Creality Print y asignar sus cuatro colores a las bobinas reales.
+
+
+### Proponer filamentos desde los colores de la imagen
+
+En `/exo/pieza`, selecciona la imagen y el numero de filamentos disponibles; pulsa
+**Analizar colores del sujeto**. BiRefNet excluye el fondo y un agrupamiento perceptual
+propone los colores predominantes del sujeto. Se muestran las regiones y su porcentaje
+del area visible. Cada selector ajusta un color propuesto al filamento que tengas;
+la miniatura se actualiza y la paleta se aplica a la conversion y al 3MF.
+
+Los porcentajes no son consumo de filamento. Con pocas plazas se pierden tonos
+minoritarios, y la foto no permite conocer colores ocultos. Revisa el recorte y
+las regiones; una mascara incorrecta contamina la propuesta. Al cambiar de imagen
+se limpia la paleta anterior; al cambiar el numero de filamentos, vuelve a analizar.
+El analisis comparte la cola de ComfyUI, pero no genera geometria ni llama al juez.
+No se impone una paleta fija para piel, ropa u otros objetos.
+
+
+### Borrar resultados y referencias locales
+
+En el Estudio, cada tarjeta de imagen tiene **Borrar**. En `/exo/pieza`, la seccion
+**Resultados guardados** permite borrar los modelos y vistas desde PC o movil.
+Se muestra una lista de archivos, referencias, historial y espacio a liberar antes
+de confirmar. El borrado es permanente; elimina los archivos reales, las notas
+del Estudio y las entradas relacionadas del historial de ComfyUI.
+
+Se incluyen STL, OBJ/MTL, texturas, GLB, 3MF, vistas y referencias vinculadas al
+resultado. Las referencias y salidas compartidas se conservan mientras otro
+resultado las utiliza. No se permite borrar durante una generacion, bucle o analisis.
+El catalogo persistente conserva la relacion entre cada nueva ejecucion y sus
+archivos despues de reiniciar.
+
+Los archivos anteriores al catalogo aparecen identificados como antiguos: solo
+se eliminan los archivos cuya asociacion puede comprobarse (por ejemplo, OBJ,
+MTL, textura y STL del mismo resultado). No se adivina que GLB o vista pertenece
+a una ejecucion antigua sin historial. Sus otros archivos se pueden borrar desde
+sus propias entradas. Las copias guardadas como encargos son archivos separados
+y se conservan. Las rutas de modelos de IA, configuraciones y codigo quedan
+fuera del borrado.

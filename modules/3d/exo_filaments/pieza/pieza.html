@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imagen a pieza · Exo</title>
+<style>
+  :root {
+    --fondo: #121417; --panel: #1a1d21; --borde: #2a2e34; --texto: #e7e9ec;
+    --suave: #9aa1a9; --acento: #ffb020; --bien: #4ec07a; --mal: #e0655f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); color: var(--texto); font: 15px/1.5 system-ui, sans-serif; }
+  header { padding: 14px 16px; border-bottom: 1px solid var(--borde); display: flex;
+    align-items: baseline; gap: 10px; flex-wrap: wrap; position: sticky; top: 0;
+    background: var(--fondo); z-index: 5; }
+  h1 { font-size: 18px; margin: 0; }
+  header a { color: var(--suave); font-size: 13px; }
+  main { padding: 16px; max-width: 760px; margin: 0 auto; }
+  section { margin-bottom: 22px; }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave);
+    margin: 0 0 8px; font-weight: 600; }
+  label { display: block; font-size: 13px; color: var(--suave); margin-bottom: 4px; }
+  input, select, textarea, button { font: inherit; font-size: 16px; color: var(--texto);
+    background: #0e1013; border: 1px solid var(--borde); border-radius: 8px; padding: 10px; width: 100%; }
+  button { background: var(--panel); cursor: pointer; min-height: 46px; }
+  button:hover { border-color: var(--acento); }
+  button.principal { background: var(--acento); color: #1a1205; border-color: var(--acento);
+    font-weight: 600; min-height: 54px; font-size: 17px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .elegir { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px;
+    max-height: 260px; overflow-y: auto; padding: 4px; border: 1px solid var(--borde); border-radius: 10px; }
+  .elegir img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px;
+    border: 2px solid transparent; display: block; cursor: pointer; }
+  .elegir img.puesta { border-color: var(--acento); }
+  .elegida { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+  .elegida img { width: 84px; height: 84px; object-fit: cover; border-radius: 10px; }
+  .informe { background: var(--panel); border: 1px solid var(--borde); border-radius: 10px;
+    padding: 12px; margin-bottom: 10px; }
+  .informe h3 { margin: 0 0 6px; font-size: 14px; }
+  .informe pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 13px;
+    color: #cfd4da; font-family: ui-monospace, monospace; }
+  .vistas img { width: 100%; border-radius: 10px; border: 1px solid var(--borde); margin-bottom: 8px; }
+  .archivos a { display: block; text-align: center; text-decoration: none; margin-bottom: 8px; }
+  .nota { font-size: 12px; color: var(--suave); margin: 6px 0 0; }
+  .barra { height: 6px; background: var(--borde); border-radius: 3px; overflow: hidden; margin: 10px 0; }
+  .barra div { height: 100%; background: var(--acento); width: 30%; animation: corre 1.6s ease-in-out infinite; }
+  @keyframes corre { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+  .aviso { padding: 10px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
+  .aviso.error { background: #3a1e1d; border: 1px solid var(--mal); }
+  .aviso.bien { background: #1c3326; border: 1px solid var(--bien); }
+  @media (max-width: 560px) {
+    .dos { grid-template-columns: 1fr; }
+    main { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Imagen → pieza imprimible</h1>
+  <a href="/exo/estudio">← Estudio</a>
+</header>
+
+<main>
+  <section>
+    <h2>1 · La imagen</h2>
+    <div class="elegida" id="elegida" hidden><img id="elegida-img" alt=""><div id="elegida-nombre"></div></div>
+    <label for="subir-imagen-3d">Subir imagen desde este dispositivo</label><input id="subir-imagen-3d" type="file" accept="image/png,image/jpeg,image/webp">
+    <div class="elegir" id="galeria"></div>
+    <p class="nota">Lo generado en el Estudio y lo que haya en <code>input/</code>. Toca una para elegirla.</p>
+  </section>
+
+  <section>
+    <h2>2 · Cómo se va a imprimir</h2>
+    <div class="dos">
+      <div><label for="altura">Altura de la pieza (mm)</label><input type="number" id="altura" value="80" min="10" max="300" step="5"></div>
+      <div><label for="material">Material</label><select id="material"></select></div>
+      <div><label for="relleno">Relleno (%)</label><input type="number" id="relleno" value="15" min="0" max="100" step="5"></div>
+      <div><label for="pared">Pared mínima (mm)</label><input type="number" id="pared" value="1.2" min="0.4" max="4" step="0.1"></div>
+    </div>
+    <p style="margin-top:10px"><label><input type="checkbox" id="color" checked style="width:auto; min-height:0"> Con color (más lento, y hace falta para multicolor)</label></p>
+    <div id="caja-paleta">
+      <div class="fila"><div><label for="semilla-textura">Semilla de color (opcional)</label><input id="semilla-textura" type="number" min="0" max="4294967295" placeholder="Automatica"></div><div><label for="pasos-textura">Pasos de textura</label><input id="pasos-textura" type="number" min="12" max="40" value="24"></div></div>
+      <label><input id="color-frontal" type="checkbox"> Corregir colores con la foto frontal</label><p class="nota">Para una foto frontal alineada con el modelo. Revisa los perfiles.</p><label><input id="completar-oscuras" type="checkbox" checked> Completar manchas oscuras de los perfiles según la referencia</label><label for="resolucion-reparacion">Detalle de reparacion</label><select id="resolucion-reparacion"><option value="320">320 · ligero</option><option value="384" selected>384 · equilibrado</option><option value="448">448 · fino</option><option value="512">512 · maximo</option></select><label for="paleta">Filamentos disponibles (colores separados por coma)</label>
+      <input type="text" id="paleta">
+      <button type="button" id="analizar-paleta">Analizar colores del sujeto</button>
+      <button type="button" id="paleta-auto">Usar colores de la malla al exportar</button>
+      <p id="estado-paleta" class="nota">Elige una imagen y analiza sus colores para proponer los filamentos.</p>
+      <div id="segmentacion-resultado" hidden><canvas id="mapa-colores" style="max-width:100%;width:256px;background:#777" aria-label="Regiones de color del sujeto"></canvas><div id="colores-detectados"></div></div>
+      <p class="nota">Con una paleta escrita, las vistas de revisión y el 3MF usan esos filamentos. Los tonos ausentes se sustituyen: sin beige, la piel puede quedar blanca o amarilla. Vacío = paleta automática al exportar; las vistas conservan el color previo a la reducción. Usa colores que correspondan a tus bobinas.</p>
+    </div>
+    <div class="dos" style="margin-top:10px">
+      <div><label for="cama">Cama de la impresora (mm)</label><input type="text" id="cama" value="350 x 350 x 350"></div>
+      <div><label for="angulo">Ángulo sin soportes (grados)</label><input type="number" id="angulo" value="45" min="20" max="80" step="5"></div>
+    </div>
+    <div style="margin-top:10px">
+      <label for="descripcion">Qué debería ser (para la revisión)</label>
+      <input type="text" id="descripcion" placeholder="un dragón sentado, figura de juguete">
+    </div>
+  </section>
+
+  <section>
+    <button id="convertir" class="principal" disabled>Convertir a 3D</button>
+    <p class="nota" id="pista">Elige antes una imagen. Con color tarda varios minutos: puedes cerrar el móvil y volver, el trabajo sigue en el PC.</p>
+  </section>
+
+  <section>
+    <h2>Plan de impresión · K2 Plus + CFS</h2>
+    <div class="dos"><div><label for="plan-sistema">Sistema multicolor</label><select id="plan-sistema"><option value="sin_confirmar">Sin confirmar</option><option value="cfs" selected>CFS</option><option value="manual">Sin CFS / cambio manual</option></select></div>
+    <div><label for="plan-plazas">Filamentos disponibles</label><input id="plan-plazas" type="number" min="1" max="16" value="4"></div></div>
+    <label for="plan-capa">Altura de capa (mm)</label><input id="plan-capa" type="number" min="0.05" max="1" step="0.05" value="0.2">
+    <p class="nota">Se incluye automaticamente en nuevas conversiones. Tambien puedes analizar una pieza existente. La comparacion es geometrica: purga, tiempo y ahorro quedan pendientes del laminado.</p>
+    <label for="plan-modelo">Pieza existente</label><select id="plan-modelo"></select>
+    <button id="plan-analizar">Analizar complejidad</button>
+    <div class="informe" style="margin-top:10px"><pre id="plan-texto">Selecciona una pieza para comparar entero, separado e hibrido.</pre></div>
+    <button id="plan-descarga" hidden>Descargar diagnostico JSON</button>
+    <p class="nota"><a href="https://www.creality.com/help/help-introduction-to-the-color-painting-feature" target="_blank" rel="noopener">Guia oficial de pintado Creality</a></p>
+  </section>
+  <section>
+    <h2>Separacion guiada · corte plano</h2>
+    <p class="nota">Usa la pieza elegida en el plan de impresion. La vista es una proyeccion aproximada; no identifica automaticamente cuello o manos. El original se conserva.</p>
+    <div class="dos"><div><label for="corte-eje">Direccion del corte</label><select id="corte-eje"><option value="y">Altura (Y del modelo)</option><option value="x">Ancho (X del modelo)</option><option value="z">Profundidad (Z del modelo)</option></select></div><div><label for="corte-porcentaje">Posicion (%)</label><input id="corte-porcentaje" type="number" min="1" max="99" step="1" value="50"></div></div>
+    <input id="corte-deslizador" type="range" min="1" max="99" value="50" aria-label="Mover plano de corte">
+    <button id="corte-ver">Ver plano sobre la pieza</button>
+    <canvas id="corte-canvas" width="600" height="460" style="width:100%;height:auto;background:#283340;border-radius:10px;margin-top:10px" aria-label="Proyeccion de la pieza y plano de corte"></canvas>
+    <p id="corte-posicion" class="nota">Carga una vista para situar el plano.</p>
+    <button id="corte-generar" disabled>Generar dos piezas cerradas</button>
+    <div class="informe" style="margin-top:10px"><pre id="corte-informe">Sin corte. No se crean encajes en esta etapa.</pre></div>
+    <div id="corte-descargas" class="archivos"></div>
+  </section>
+  <section>
+    <h2>Resultados guardados · imagen y 3D</h2>
+    <p class="nota">Borra modelos, vistas y referencias asociadas de la PC y del historial. Las referencias compartidas se conservan hasta borrar el ultimo resultado que las usa. Se mostrara la lista antes de confirmar.</p>
+    <button type="button" id="actualizar-resultados">Actualizar resultados</button>
+    <div data-exo-resultados="3d"></div>
+  </section>
+  <section id="resultado" hidden>
+    <h2>Resultado</h2>
+    <div id="progreso"><div class="barra"><div></div></div><p class="nota" id="reloj">trabajando…</p></div>
+    <div id="mensajes"></div>
+    <div class="vistas" id="vistas"></div>
+    <div id="informes"></div>
+    <button id="retexturizar" hidden>Regenerar solo el color</button>
+    <div class="archivos" id="archivos"></div>
+    <div id="caja-encargo" hidden style="margin-top:12px">
+      <label for="encargo">Guardar como encargo (nombre del cliente o del pedido)</label>
+      <input type="text" id="encargo" placeholder="Maria - funko de su perro">
+      <button id="guardar-encargo" style="margin-top:8px">Guardar encargo</button>
+      <p class="nota">Copia el STL, el OBJ, las vistas, la imagen de partida y todos los
+      informes a una carpeta con la fecha y ese nombre, para tenerlo junto cuando el
+      cliente pregunte dentro de tres semanas.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let elegida = null, trabajo = null, reloj = null;
+
+async function json(url, opciones) {
+  const r = await fetch(url, opciones);
+  const datos = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(datos.error || r.statusText);
+  return datos;
+}
+
+let segmentacion = null, versionPaleta = 0;
+
+function pintarSegmentacion() {
+  if (!segmentacion) return;
+  const colores = $("paleta").value.split(",").map(c => c.trim());
+  if (colores.length !== segmentacion.colores.length || colores.some(c => !/^#[0-9a-f]{6}$/i.test(c))) return;
+  const canvas = $("mapa-colores"), ctx = canvas.getContext("2d");
+  canvas.width = segmentacion.ancho; canvas.height = segmentacion.alto;
+  const indices = atob(segmentacion.regiones), pixels = ctx.createImageData(canvas.width, canvas.height);
+  const rgb = colores.map(c => [1,3,5].map(i => parseInt(c.slice(i,i+2),16)));
+  for (let i=0; i<indices.length; i++) {
+    const label=indices.charCodeAt(i);
+    if (label) { pixels.data.set(rgb[label-1],i*4); pixels.data[i*4+3]=255; }
+  }
+  ctx.putImageData(pixels,0,0);
+}
+
+function mostrarColores(datos) {
+  segmentacion=datos;
+  $("paleta").value=datos.paleta;
+  $("colores-detectados").replaceChildren();
+  datos.colores.forEach((c,i) => {
+    const fila=document.createElement("label");
+    fila.style.cssText="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0";
+    const origen=document.createElement("span");
+    origen.textContent=`Color ${i+1}: ${c.color} · ${c.porcentaje}% → filamento`;
+    const picker=document.createElement("input");
+    picker.type="color";picker.value=c.color;
+    picker.style.cssText="width:64px;min-height:44px;padding:2px";
+    picker.addEventListener("input",() => {
+      $("paleta").value=[...$("colores-detectados").querySelectorAll('input[type="color"]')].map(p=>p.value).join(",");
+      pintarSegmentacion();
+    });
+    fila.append(origen,picker);$("colores-detectados").append(fila);
+  });
+  $("segmentacion-resultado").hidden=false;
+  $("estado-paleta").textContent=datos.nota;
+  pintarSegmentacion();
+}
+
+$("analizar-paleta").addEventListener("click",async () => {
+  if (!elegida) { $("estado-paleta").textContent="Elige una imagen primero."; return; }
+  const version=++versionPaleta;
+  $("analizar-paleta").disabled=true;$("convertir").disabled=true;
+  $("estado-paleta").textContent="Separando el sujeto del fondo y agrupando sus colores. Esperará su turno en la cola.";
+  try {
+    const r=await json("/exo/pieza/paleta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imagen:elegida.nombre,plazas:+$("plan-plazas").value})});
+    const limite=Date.now()+10*60*1000;
+    while (version===versionPaleta && Date.now()<limite) {
+      const estado=await json(`/exo/pieza/paleta/${r.id}`);
+      if (version!==versionPaleta) return;
+      if (estado.error) throw new Error(estado.error);
+      if (estado.terminado) {
+       mostrarColores(estado); return; }
+      await new Promise(resolve=>setTimeout(resolve,1500));
+    }
+    if (version===versionPaleta) throw new Error("El análisis sigue en la cola; revisa ComfyUI y vuelve a analizar.");
+  } catch(e) { if(version===versionPaleta) $("estado-paleta").textContent=e.message; }
+  finally { if(version===versionPaleta) { $("analizar-paleta").disabled=false;$("convertir").disabled=!elegida; } }
+});
+$("paleta-auto").addEventListener("click", () => {
+  versionPaleta++;segmentacion=null;$("paleta").value="";
+  $("segmentacion-resultado").hidden=true;$("estado-paleta").textContent="Paleta automática de la malla al exportar; para elegir filamentos desde la foto, pulsa Analizar colores.";
+  $("analizar-paleta").disabled=false;$("convertir").disabled=!elegida;
+});
+$("paleta").addEventListener("input",pintarSegmentacion);
+$("plan-plazas").addEventListener("change",()=> { $("estado-paleta").textContent="Cambió el número de filamentos: vuelve a analizar para recalcular la propuesta."; });
+
+
+
+window.addEventListener("exo-resultados-borrados",async(e)=>{
+  const removed=new Set(e.detail.eliminados);
+  if (elegida && (removed.has("output:qwen21/"+elegida.nombre) || removed.has("input:"+elegida.nombre))) {
+    elegida=null;$("elegida").hidden=true;$("convertir").disabled=true;
+  }
+  const borradoActual=[...$("archivos").querySelectorAll("a")].some(a=>removed.has("output:"+new URL(a.href,location.href).searchParams.get("ruta")));
+  if (borradoActual) {clearInterval(reloj);trabajo=null;$("resultado").hidden=true;}
+  await cargar();await cargarModelosPlan();
+});
+
+$("subir-imagen-3d").addEventListener("change",async(e)=>{
+  const file=e.target.files[0];if(!file) return;
+  e.target.disabled=true;
+  try {
+    const form=new FormData();form.append("image",file);form.append("type","input");
+    const uploaded=await json("/upload/image",{method:"POST",body:form});
+    await cargar();
+    const photo=[...$("galeria").querySelectorAll("img")].find(img=>img.alt===uploaded.name);
+    if(photo) elegir({nombre:uploaded.name,origen:"entrada",url:photo.src},photo);
+    else throw new Error("Imagen guardada; actualiza la galeria para seleccionarla.");
+  } catch(error) { mensaje("No se pudo subir: "+error.message,"error"); }
+  finally {e.target.disabled=false;e.target.value="";}
+});
+
+async function cargar() {
+  const datos = await json("/exo/pieza/imagenes");
+  $("material").innerHTML = datos.materiales.map((m) => `<option>${m}</option>`).join("");
+  $("paleta").value = datos.paleta;
+  $("galeria").innerHTML = "";
+  datos.imagenes.forEach((im) => {
+    const foto = document.createElement("img");
+    foto.src = im.url;
+    foto.alt = im.nombre;
+    foto.loading = "lazy";
+    foto.addEventListener("click", () => elegir(im, foto));
+    $("galeria").appendChild(foto);
+  });
+}
+
+function elegir(im, foto) {
+  elegida = im;
+  versionPaleta++;segmentacion=null;$("paleta").value="";
+  $("segmentacion-resultado").hidden=true;$("analizar-paleta").disabled=false;
+  $("estado-paleta").textContent="Pulsa Analizar colores del sujeto para calcular una paleta de esta imagen.";
+  [...$("galeria").querySelectorAll("img")].forEach((i) => i.classList.remove("puesta"));
+  foto.classList.add("puesta");
+  $("elegida").hidden = false;
+  $("elegida-img").src = im.url;
+  $("elegida-nombre").textContent = im.nombre;
+  $("convertir").disabled = false;
+  $("pista").textContent = "Con color tarda varios minutos: puedes cerrar el móvil y volver, el trabajo sigue en el PC.";
+}
+
+// "350 x 350 x 350", "350x350x350" o "350 350 350": se aceptan las tres.
+function medidasCama() {
+  const n = ($("cama").value.match(/\d+(?:[.,]\d+)?/g) || []).map((x) => +x.replace(",", "."));
+  return { cama_x: n[0] || 350, cama_y: n[1] || n[0] || 350, cama_z: n[2] || n[0] || 350 };
+}
+
+function mensaje(texto, clase) {
+  $("mensajes").innerHTML = `<div class="aviso ${clase}">${texto}</div>`;
+}
+
+async function convertir() {
+  if (!elegida) return;
+  $("convertir").disabled = true;
+  $("retexturizar").hidden=true;
+  $("resultado").hidden = false;
+  $("progreso").hidden = false;
+  $("mensajes").innerHTML = "";
+  $("vistas").innerHTML = "";
+  $("informes").innerHTML = "";
+  $("archivos").innerHTML = "";
+  $("resultado").scrollIntoView({ behavior: "smooth" });
+
+  try {
+    const r = await json("/exo/pieza/convertir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imagen: elegida.nombre,
+        pasos_textura: +$("pasos-textura").value,
+        resolucion_reparacion: +$("resolucion-reparacion").value,
+        color_frontal: $("color-frontal").checked,
+        completar_oscuras: $("completar-oscuras").checked,
+        ...($("semilla-textura").value!=="" ? {semilla_textura:+$("semilla-textura").value} : {}),
+        color: $("color").checked,
+        paleta: $("color").checked ? $("paleta").value.trim() : "",
+        altura: +$("altura").value,
+        material: $("material").value,
+        relleno: +$("relleno").value,
+        pared: +$("pared").value,
+        descripcion: $("descripcion").value.trim(),
+        ...medidasCama(),
+        angulo_voladizo: +$("angulo").value,
+        ...opcionesPlan(),
+      }),
+    });
+    trabajo = r.id;
+    seguir();
+  } catch (e) {
+    mensaje("No se pudo lanzar: " + e.message, "error");
+    $("progreso").hidden = true;
+    $("convertir").disabled = false;
+  }
+}
+
+function seguir() {
+  clearInterval(reloj);
+  // Cada 3 s: una pieza son minutos, no hace falta mas fino. Si cierras y vuelves a
+  // abrir, el trabajo sigue en el PC; solo se pierde este seguimiento.
+  reloj = setInterval(async () => {
+    let estado;
+    try {
+      estado = await json(`/exo/pieza/estado/${trabajo}`);
+    } catch { return; }
+    $("reloj").textContent = `trabajando… ${estado.segundos} s`;
+    if (!estado.terminado) {
+
+      if(estado.reintentos_color)$("reloj").textContent+=` · corrigiendo color, intento ${estado.reintentos_color}`;
+      return;
+    }
+
+    clearInterval(reloj);
+    $("progreso").hidden = true;
+    $("convertir").disabled = false;
+    if (estado.error) { mensaje("Se detuvo: " + estado.error, "error"); return; }
+    mensaje(estado.color_requiere_revision ? "El color sigue sin corresponder a la referencia: revisa las vistas antes de imprimir." : estado.color_sin_verificar ? "Conversión terminada. La IA no pudo verificar el color; compara las vistas con la imagen antes de imprimir." : `Pieza lista en ${estado.segundos} s.`, (estado.color_requiere_revision || estado.color_sin_verificar) ? "error" : "bien");
+    $("retexturizar").hidden=!estado.retexturizable;
+    pintar(estado);
+  }, 3000);
+}
+
+function pintar(estado) {
+  window.dispatchEvent(new Event("exo-resultados-actualizar"));
+
+  cargarModelosPlan().catch(() => {});
+  $("vistas").innerHTML = estado.vistas.map((v) =>
+    `<img src="/view?filename=${encodeURIComponent(v.archivo)}&subfolder=${encodeURIComponent(v.subcarpeta)}&type=output" alt="vistas de la pieza">`
+  ).join("");
+
+  $("informes").innerHTML = estado.informes.map((i) =>
+    `<div class="informe"><h3>${i.titulo}</h3><pre>${i.texto.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))}</pre></div>`
+  ).join("");
+
+  $("caja-encargo").hidden = !estado.archivos.length;
+  $("archivos").innerHTML = estado.archivos.map((a) =>
+    `<a href="/exo/pieza/descargar?ruta=${encodeURIComponent(a.ruta)}"><button>Descargar ${a.nombre}</button></a>`
+  ).join("");
+}
+
+async function guardarEncargo() {
+  const nombre = $("encargo").value.trim();
+  if (!nombre) { mensaje("Ponle un nombre al encargo.", "error"); return; }
+  $("guardar-encargo").disabled = true;
+  try {
+    const r = await json("/exo/pieza/encargo", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: trabajo, nombre }),
+    });
+    mensaje(`Guardado en ${r.carpeta} (${r.archivos.length} archivos).`, "bien");
+  } catch (e) {
+    mensaje("No se pudo guardar: " + e.message, "error");
+  } finally {
+    $("guardar-encargo").disabled = false;
+  }
+}
+
+let ultimoPlan = null;
+function opcionesPlan() { return { sistema: $("plan-sistema").value, plazas: +$("plan-plazas").value, capa_mm: +$("plan-capa").value, material: $("material").value, ...medidasCama() }; }
+async function cargarModelosPlan() {
+  const r = await json("/exo/pieza/modelos-plan");
+  $("plan-modelo").replaceChildren(...r.modelos.map(m => { const o=document.createElement("option"); o.value=m.ruta; o.textContent=m.nombre; return o; }));
+}
+$("plan-analizar").addEventListener("click", async () => {
+  $("plan-analizar").disabled=true; $("plan-descarga").hidden=true; ultimoPlan=null;
+  $("plan-texto").textContent="Analizando una malla...";
+  try {
+    const r=await json("/exo/pieza/plan", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ruta:$("plan-modelo").value,...opcionesPlan()})});
+    $("plan-texto").textContent=r.texto; ultimoPlan=r.plan; $("plan-descarga").hidden=false;
+  } catch(e) { $("plan-texto").textContent=e.message; }
+  finally { $("plan-analizar").disabled=false; }
+});
+$("plan-descarga").addEventListener("click", () => {
+  if(!ultimoPlan)return;
+  const url=URL.createObjectURL(new Blob([JSON.stringify(ultimoPlan,null,2)],{type:"application/json"}));
+  const a=document.createElement("a"); a.href=url; a.download="plan_impresion.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+let vistaCorte=null, rutaVistaCorte="";
+function dibujarCorte() {
+  const canvas=$("corte-canvas"), ctx=canvas.getContext("2d"); ctx.clearRect(0,0,600,460);
+  if(!vistaCorte)return;
+  const axis="xyz".indexOf($("corte-eje").value), horizontal=axis===0?2:0, depth=[0,1,2].find(i=>i!==axis&&i!==horizontal);
+  const min=vistaCorte.min,max=vistaCorte.max, spanH=max[horizontal]-min[horizontal], spanV=max[axis]-min[axis];
+  const scale=Math.min(530/Math.max(spanH,1),380/Math.max(spanV,1));
+  const left=300-spanH*scale/2, bottom=420;
+  const points=vistaCorte.puntos.map((p,i)=>({p,i})).sort((a,b)=>a.p[depth]-b.p[depth]);
+  for(const {p,i} of points) {
+    const rgb=vistaCorte.colores?.[i]||[.8,.8,.8];ctx.fillStyle=`rgb(${rgb.map(v=>Math.round(v*255)).join(",")})`;
+    ctx.fillRect(left+(p[horizontal]-min[horizontal])*scale,bottom-(p[axis]-min[axis])*scale,3,3);
+  }
+  const pct=+$("corte-porcentaje").value, y=bottom-spanV*pct/100*scale;
+  ctx.strokeStyle="#ffb020";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(20,y);ctx.lineTo(580,y);ctx.stroke();
+  ctx.fillStyle="#fff";ctx.font="16px system-ui";ctx.fillText(`Plano ${$("corte-eje").value.toUpperCase()} · ${pct}%`,20,24);
+  $("corte-posicion").textContent=`Posicion del plano: ${(min[axis]+spanV*pct/100).toFixed(2)} mm en coordenadas del modelo. Vista aproximada; revisa el resultado en el laminador.`;
+}
+$("corte-ver").addEventListener("click",async()=>{
+  $("corte-ver").disabled=true;$("corte-generar").disabled=true;vistaCorte=null;$("corte-informe").textContent="Cargando vista...";
+  try {
+    const ruta=$("plan-modelo").value;
+    vistaCorte=await json("/exo/pieza/corte-vista",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ruta})});
+    rutaVistaCorte=ruta;dibujarCorte();$("corte-generar").disabled=false;$("corte-informe").textContent="Ajusta el plano y genera las piezas. Corte sin encajes.";
+  } catch(e){$("corte-informe").textContent=e.message;}finally{$("corte-ver").disabled=false;}
+});
+$("corte-porcentaje").addEventListener("input",()=>{$("corte-deslizador").value=$("corte-porcentaje").value;dibujarCorte();});
+$("corte-deslizador").addEventListener("input",()=>{$("corte-porcentaje").value=$("corte-deslizador").value;dibujarCorte();});
+$("corte-eje").addEventListener("change",dibujarCorte);
+$("plan-modelo").addEventListener("change",()=>{vistaCorte=null;$("corte-generar").disabled=true;dibujarCorte();});
+$("corte-generar").addEventListener("click",async()=>{
+  if(!vistaCorte||rutaVistaCorte!==$("plan-modelo").value)return;
+  $("corte-generar").disabled=true;$("corte-informe").textContent="Cortando y comprobando solidos...";$("corte-descargas").replaceChildren();
+  try {
+    const r=await json("/exo/pieza/cortar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ruta:rutaVistaCorte,eje:$("corte-eje").value,porcentaje:+$("corte-porcentaje").value})});
+    $("corte-informe").textContent=`Dos piezas cerradas. Error de conservacion de volumen: ${r.informe.error_volumen_pct.toFixed(5)} %.\n`+
+      r.informe.piezas.map((p,i)=>`Parte ${i+1}: ${p.dimensiones_mm.map(n=>n.toFixed(1)).join(" x ")} mm; ${p.componentes} componentes`).join("\n")+"\n"+r.informe.avisos.join("\n");
+    for(const f of r.archivos){const a=document.createElement("a");a.href="/exo/pieza/descargar?ruta="+encodeURIComponent(f.ruta);a.textContent="Descargar "+f.nombre;$("corte-descargas").append(a);}
+    trabajo=r.id;$("resultado").hidden=false;$("caja-encargo").hidden=false;$("informes").replaceChildren();$("vistas").replaceChildren();$("archivos").replaceChildren();
+    mensaje("Corte listo. Puedes guardarlo como encargo.","bien");
+  } catch(e){$("corte-informe").textContent=e.message;}finally{$("corte-generar").disabled=!vistaCorte;}
+});
+cargarModelosPlan().catch(e => { $("plan-texto").textContent=e.message; });
+$("guardar-encargo").addEventListener("click", guardarEncargo);
+$("retexturizar").addEventListener("click",async()=>{
+  $("retexturizar").disabled=true;
+  try{
+    const r=await json("/exo/pieza/retexturizar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:trabajo})});
+    trabajo=r.id;$("convertir").disabled=true;$("progreso").hidden=false;$("retexturizar").hidden=true;seguir();
+  }catch(e){mensaje(e.message,"error");}
+  finally{$("retexturizar").disabled=false;}
+});
+$("convertir").addEventListener("click", convertir);
+$("color").addEventListener("change", () => { $("caja-paleta").hidden = !$("color").checked; });
+cargar().catch((e) => mensaje("No se pudo cargar la lista de imágenes: " + e.message, "error"));
+</script>
+<script src="/exo/resultados.js"></script>
+</body>
+</html>

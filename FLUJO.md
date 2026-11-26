@@ -22,7 +22,7 @@ Nodos propios (categoria `3d/exo filaments`):
 los que tengas cargados y pulsa *Aplicar al nodo*: escribe la paleta en el nodo sin que
 tengas que escribir hex a mano. Se guarda en el navegador.
 
-**Estudio Qwen** (barra lateral, icono de imagenes, o `http://127.0.0.1:8188/exo/estudio`):
+**Estudio Qwen** (barra lateral, icono de imagenes, o `http://localhost:8188/exo/estudio`):
 texto -> imagen y edicion de imagen con Qwen-Image 2.1 (GGUF Q8_0 sin filtro de contenido,
 codificador qwen3vl int8). ~25 s por imagen de 1 MP, ~35-40 s la primera o con referencia.
 - *Pensada para pasar a 3D* anade al prompt: objeto entero, centrado, fondo liso.

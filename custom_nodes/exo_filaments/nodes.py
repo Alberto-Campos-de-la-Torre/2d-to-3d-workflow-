@@ -1,4 +1,4 @@
-﻿"""Nodos de Exo filaments: pasar de una malla generada a una pieza imprimible.
+"""Nodos de Exo filaments: pasar de una malla generada a una pieza imprimible.
 
 - Paleta de filamentos: reduce el color del modelo a los filamentos que hay cargados.
 - Informe de impresion: escala a milimetros y calcula volumen, peso y estanqueidad.
@@ -9,6 +9,7 @@ import os
 import struct
 
 import numpy as np
+from manifold3d import Manifold, Mesh as MeshManifold
 import torch
 from typing_extensions import override
 
@@ -293,6 +294,7 @@ class ExoRevisarPieza(IO.ComfyNode):
                 IO.Mesh.Input("mesh"),
                 IO.String.Input("descripcion", multiline=False, default="",
                                 tooltip="Lo que se pidio, para comparar. Vacio = solo busca defectos."),
+                IO.Image.Input("imagen_referencia", optional=True),
                 IO.Int.Input("resolucion_vista", default=448, min=256, max=1024, step=64,
                              tooltip="Lado de cada una de las cuatro vistas."),
             ],
@@ -306,13 +308,17 @@ class ExoRevisarPieza(IO.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, mesh, descripcion, resolucion_vista):
+    def execute(cls, mesh, descripcion, resolucion_vista, imagen_referencia=None):
         from .revision_pieza import a_imagen_comfy, resumen, revisar_pieza
 
-        informe, hoja = revisar_pieza(mesh, descripcion, resolucion_vista)
+        referencia = None
+        if imagen_referencia is not None:
+            from PIL import Image
+            referencia=Image.fromarray(np.clip(imagen_referencia[0].detach().cpu().numpy()*255,0,255).astype(np.uint8))
+        informe, hoja = revisar_pieza(mesh, descripcion, resolucion_vista, referencia)
         return IO.NodeOutput(a_imagen_comfy(hoja), json.dumps(informe, ensure_ascii=False),
                              bool(informe.get("apto")), float(informe.get("puntuacion") or 0.0),
-                             ui={"text": (resumen(informe),)})
+                             ui={"text": (resumen(informe),), "revision_pieza": [informe]})
 
 
 class ExoCorregirPrompt(IO.ComfyNode):
@@ -500,14 +506,14 @@ class ExoSolidificar(IO.ComfyNode):
             ),
             inputs=[
                 IO.Mesh.Input("mesh"),
-                IO.Int.Input("resolucion", default=320, min=64, max=768, step=32,
+                IO.Int.Input("resolucion", default=384, min=64, max=768, step=32,
                              tooltip="Voxeles por lado. El escalon de la rejilla mide altura_mm / resolucion: con 320 "
-                                     "una pieza de 80 mm sale con escalones de 0,25 mm. Regla: resolucion = altura_mm x 4."),
+                                     "una pieza de 80 mm tiene muestreo de 0,25 mm. La superficie se interpola; mas resolucion conserva mas detalle."),
                 IO.Int.Input("cerrar_grietas", default=1, min=0, max=4,
                              tooltip="Cuantos voxeles se engordan antes de rellenar, para tapar agujeros. Sube a 2 si la malla viene muy rota."),
                 IO.Int.Input("suavizar_forma", default=5, min=0, max=12,
                              tooltip="Pasadas de suavizado para quitar el escalonado de la rejilla. Es lo que mas se "
-                                     "nota: con 5 pasadas y rejilla 320 queda como con rejilla 640. Baja a 2 en piezas "
+                                     "nota: suavizar no recupera detalles perdidos por la rejilla. Baja a 2 en piezas "
                                      "con aristas vivas (cubos, cajas), que se redondean."),
             ],
             outputs=[
@@ -520,11 +526,6 @@ class ExoSolidificar(IO.ComfyNode):
     @classmethod
     def execute(cls, mesh, resolucion, cerrar_grietas, suavizar_forma):
         from scipy import ndimage
-
-        # Se usa el reconstructor 'basic': el de 'surface net' sale mas suave pero deja
-        # miles de aristas abiertas (1.749 frente a 7 en la misma pieza). El escalonado
-        # se quita despues con el suavizado, que no toca la topologia.
-        from comfy_extras.nodes_hunyuan3d import voxel_to_mesh
 
         vertices, caras = _primera_malla(mesh)
         abiertas_antes = _aristas_abiertas(vertices, caras)
@@ -562,13 +563,8 @@ class ExoSolidificar(IO.ComfyNode):
         if not solido.any():   # nada cerro: se sigue con la cascara, y el informe lo dice
             solido, interior = rejilla, 0
 
-        campo = torch.from_numpy(solido.astype(np.float32))
-        v, f = voxel_to_mesh(campo, threshold=0.5, device=None)
-        # voxel_to_mesh devuelve el modelo centrado en [-1, 1] y con los ejes volteados:
-        # hay que deshacer las dos cosas antes de volver a las medidas del original.
-        rejilla_coords = v.cpu().numpy().astype(np.float64)[:, ::-1] * (resolucion / 2.0) + (resolucion / 2.0)
-        vertices_salida = (rejilla_coords / escala + origen).astype(np.float32)
-        vertices_salida, nuevas_caras = _soldar(vertices_salida, np.ascontiguousarray(f.cpu().numpy().astype(np.int64)))
+        from .superficie import reconstruir
+        vertices_salida, nuevas_caras = reconstruir(solido, origen, escala)
         vertices_salida = _suavizar_forma(vertices_salida, nuevas_caras, suavizar_forma)
 
         salida = mesh.clone() if hasattr(mesh, "clone") else __import__("copy").deepcopy(mesh)
@@ -775,8 +771,8 @@ class ExoGuardarImpresion(IO.ComfyNode):
             category="3d/exo filaments",
             description=(
                 "Escribe el STL y, si la malla trae color, un OBJ con su MTL. "
-                "Creality Print, Bambu Studio y Orca abren el OBJ y ofrecen emparejar cada color "
-                "con un filamento: en Creality hay que pulsar 'Color match' antes de aceptar."
+                "El OBJ conserva una malla cerrada y asigna un material por color. "
+                "En el laminador asigna cada material a un filamento distinto."
             ),
             inputs=[
                 IO.Mesh.Input("mesh"),
@@ -788,13 +784,17 @@ class ExoGuardarImpresion(IO.ComfyNode):
                                  tooltip="Gira SOLO el STL de Y arriba a Z arriba. El STL no lleva convencion de ejes "
                                          "y los laminadores usan Z; el OBJ si la lleva y lo corrige el propio laminador, "
                                          "asi que ese se deja tal cual (girarlo lo dejaria de lado)."),
+                IO.Int.Input("max_colores",default=4,min=1,max=16),
+                IO.String.Input("paleta_impresion",default=""),
+                IO.Boolean.Input("guardar_3mf_experimental", default=False,
+                                 tooltip="Pintura por filamento CFS en 3MF. Pendiente de validacion visual en Creality Print."),
             ],
             outputs=[IO.String.Output("rutas")],
             is_output_node=True,
         )
 
     @classmethod
-    def execute(cls, mesh, nombre, guardar_obj, poner_de_pie=True):
+    def execute(cls, mesh, nombre, guardar_obj, poner_de_pie=True, max_colores=4, paleta_impresion="", guardar_3mf_experimental=False):
         vertices, caras = _primera_malla(mesh)
         color_vert = _colores_srgb(mesh, len(vertices))
         # De Y arriba a Z arriba: (x, y, z) -> (x, -z, y). Solo para el STL, que no lleva
@@ -810,12 +810,29 @@ class ExoGuardarImpresion(IO.ComfyNode):
 
         rutas = [_escribir_stl(destino + ".stl", vertices_stl, caras)]
         if guardar_obj and color_vert is not None:
-            rutas.append(_escribir_obj(destino + ".obj", vertices, caras, color_vert))
+            rutas.append(_escribir_obj(destino + ".obj", vertices, caras, color_vert, max_colores, paleta_impresion))
+        if guardar_3mf_experimental and color_vert is not None:
+            rutas.append(_escribir_3mf(destino + ".3mf", vertices_stl, caras, color_vert, max_colores, paleta_impresion))
         texto = "\n".join(rutas)
         return IO.NodeOutput(texto, ui={"text": (texto,)})
 
 
+def _malla_exportable(vertices, caras):
+    # Soldar posiciones sin unir colores; Manifold separa los contactos no manifold.
+    vertices, indice = np.unique(np.asarray(vertices), axis=0, return_inverse=True)
+    caras = indice[caras]
+    entrada = MeshManifold(np.ascontiguousarray(vertices, dtype=np.float32),
+                           np.ascontiguousarray(caras, dtype=np.uint32),
+                           face_id=np.arange(len(caras), dtype=np.uint32))
+    solido = Manifold(entrada)
+    if solido.is_empty():
+        raise ValueError(f"Reparar la malla antes de exportar: {solido.status()}")
+    salida = solido.to_mesh()
+    return np.asarray(salida.vert_properties[:, :3]), np.asarray(salida.tri_verts), np.asarray(salida.face_id)
+
+
 def _escribir_stl(destino, vertices, caras):
+    vertices, caras, _ = _malla_exportable(vertices, caras)
     a, b, c = vertices[caras[:, 0]], vertices[caras[:, 1]], vertices[caras[:, 2]]
     normales = np.cross(b - a, c - a)
     largo = np.linalg.norm(normales, axis=1, keepdims=True)
@@ -830,48 +847,191 @@ def _escribir_stl(destino, vertices, caras):
     return destino
 
 
-def _escribir_obj(destino, vertices, caras, color_vert):
-    """OBJ con color por vertice Y materiales.
-
-    Cada laminador lee uno: Bambu y Orca toman el color de los vertices, Creality Print
-    ademas los grupos 'usemtl'. El orden 'g' antes de 'usemtl' importa: al reves, Creality
-    descarta el material y el modelo entra en gris.
-    """
-    colores, indices = np.unique(np.round(color_vert, 4), axis=0, return_inverse=True)
+def _escribir_obj(destino, vertices, caras, color_vert, max_colores=4, paleta_impresion=""):
+    """OBJ manifold con material por cara; no abre bordes para separar colores."""
+    from .colores_caras import paleta_por_cara
+    etiquetas, colores = paleta_por_cara(caras, color_vert, max_colores, paleta_impresion)
+    vertices, caras, cara_origen = _malla_exportable(vertices, caras)
+    etiquetas = etiquetas[cara_origen]
     mtl = os.path.splitext(destino)[0] + ".mtl"
     with open(mtl, "w", encoding="utf-8") as f:
         f.write("# Exo filaments - un material por filamento\n")
         for i, rgb in enumerate(colores):
             r, g, b = (float(v) for v in rgb)
-            f.write(f"newmtl color_{i + 1}\nKa {r:.4f} {g:.4f} {b:.4f}\nKd {r:.4f} {g:.4f} {b:.4f}\n"
+            f.write(f"newmtl color_{i + 1}\nKa 0.0000 0.0000 0.0000\nKd {r:.4f} {g:.4f} {b:.4f}\n"
                     f"Ks 0.0000 0.0000 0.0000\nNs 10.0\nd 1.0\nillum 2\n\n")
-
-    caras_color = indices[caras[:, 0]]
     with open(destino, "w", encoding="utf-8") as f:
         f.write(f"# Exo filaments\nmtllib {os.path.basename(mtl)}\no pieza\n")
-        datos = np.hstack([vertices, color_vert])
-        for inicio in range(0, len(datos), 50_000):
-            trozo = datos[inicio:inicio + 50_000]
-            f.write(("v %.4f %.4f %.4f %.4f %.4f %.4f\n" * len(trozo)) % tuple(trozo.ravel().tolist()))
+        np.savetxt(f, vertices, fmt="v %.9g %.9g %.9g")
         f.write("s off\n")
-        orden = np.argsort(caras_color, kind="stable")
         for i in range(len(colores)):
-            grupo = caras[orden[caras_color[orden] == i]] + 1
+            grupo = caras[etiquetas == i].astype(np.int64) + 1
             if not len(grupo):
                 continue
             f.write(f"g color_{i + 1}\nusemtl color_{i + 1}\n")
-            for inicio in range(0, len(grupo), 50_000):
-                trozo = grupo[inicio:inicio + 50_000]
-                f.write(("f %d %d %d\n" * len(trozo)) % tuple(trozo.ravel().tolist()))
+            np.savetxt(f, grupo, fmt="f %d %d %d")
     return destino
+
+
+
+class ExoPlanImpresion(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(node_id="ExoPlanImpresion", display_name="Plan de impresion (Exo)",
+            category="3d/exo filaments", inputs=[IO.Mesh.Input("mesh"),
+            IO.Float.Input("capa_mm", default=0.2, min=0.05, max=1.0),
+            IO.Combo.Input("sistema", options=["sin_confirmar", "cfs", "manual"], default="cfs"),
+            IO.Int.Input("plazas", default=4, min=1, max=16),
+            IO.Combo.Input("material", options=list(DENSIDAD), default="PLA"),
+            IO.Float.Input("cama_x", default=350, min=1, max=2000),
+            IO.Float.Input("cama_y", default=350, min=1, max=2000),
+            IO.Float.Input("cama_z", default=350, min=1, max=2000)],
+            outputs=[IO.String.Output("plan_json")], is_output_node=True)
+    @classmethod
+    def execute(cls, mesh, capa_mm, sistema, plazas, cama_x, cama_y, cama_z, material):
+        from .plan_impresion import analizar, resumen
+        v,f=_primera_malla(mesh)
+        plan=analizar(v,f,_colores_srgb(mesh,len(v)),capa_mm,plazas,sistema,(cama_x,cama_y,cama_z),material)
+        from pathlib import Path
+        import uuid
+        relativa = "3d/exo/plan_" + uuid.uuid4().hex + ".json"
+        destino = Path(folder_paths.get_output_directory()) / relativa
+        destino.parent.mkdir(parents=True,exist_ok=True)
+        destino.write_text(json.dumps(plan,ensure_ascii=False,indent=2),encoding="utf-8")
+        return IO.NodeOutput(json.dumps(plan,ensure_ascii=False),ui={"text":(resumen(plan),),"plan_archivo":[relativa]})
+
+
+class ExoAuditarTextura(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(node_id="ExoAuditarTextura",display_name="Auditar origen del color (Exo)",category="3d/exo filaments",
+            inputs=[IO.Mesh.Input("original"),IO.Mesh.Input("reparada"),IO.Voxel.Input("voxel_colors")],
+            outputs=[IO.String.Output("informe")],is_output_node=True)
+    @classmethod
+    def execute(cls,original,reparada,voxel_colors):
+        from scipy.spatial import cKDTree
+        from pathlib import Path
+        import uuid
+        coords=voxel_colors.data.detach().cpu().numpy()
+        coords=coords[:,-3:]
+        posiciones=coords.astype(np.float32)/voxel_colors.resolution-.5
+        colores=voxel_colors.voxel_colors.detach().cpu().numpy()[:,:3]
+        tree=cKDTree(posiciones)
+        carpeta=Path(folder_paths.get_output_directory())/"diagnostico_color"/uuid.uuid4().hex
+        carpeta.mkdir(parents=True)
+        informe={"resolution":int(voxel_colors.resolution),"voxeles":len(posiciones),"etapas":{}}
+        for nombre,mesh in [("antes_reparacion",original),("despues_reparacion",reparada)]:
+            total=int(mesh.vertex_counts[0]) if mesh.vertex_counts is not None else mesh.vertices.shape[1]
+            indices=torch.linspace(0,total-1,min(total,40000),device=mesh.vertices.device).long()
+            v=mesh.vertices[0,indices].detach().cpu().numpy()
+            dist,idx=tree.query(v,workers=2)
+            c=np.clip(colores[idx],0,1)
+            np.savez_compressed(carpeta/(nombre+".npz"),vertices=v,colores=c,distancias=dist)
+            informe['etapas'][nombre]={"vertices_originales":total,"bbox_min":v.min(0).tolist(),"bbox_max":v.max(0).tolist(),
+                "distancia_mediana":float(np.median(dist)),"distancia_p99":float(np.quantile(dist,.99))}
+        (carpeta/'informe.json').write_text(json.dumps(informe,indent=2),encoding='utf-8')
+        texto=str(carpeta)
+        return IO.NodeOutput(texto,ui={"text":(texto,)})
+
+
+class ExoTransferirColor(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(node_id="ExoTransferirColor", display_name="Transferir color de superficie (Exo)",
+            category="3d/exo filaments", inputs=[IO.Mesh.Input("mesh"), IO.Mesh.Input("referencia"),
+            IO.Voxel.Input("voxel_colors")], outputs=[IO.Mesh.Output("mesh"), IO.String.Output("informe")])
+
+    @classmethod
+    def execute(cls, mesh, referencia, voxel_colors):
+        import copy
+        from .transferencia_color import transferir
+        if voxel_colors.data.shape[0] == 0:
+            raise ValueError("Campo de color vacio: regenerar textura")
+        destino = mesh.vertices[0].detach().cpu().numpy()
+        original = referencia.vertices[0].detach().cpu().numpy()
+        if mesh.vertex_counts is not None:
+            destino = destino[:int(mesh.vertex_counts[0])]
+        if referencia.vertex_counts is not None:
+            original = original[:int(referencia.vertex_counts[0])]
+        coords = voxel_colors.data.detach().cpu().numpy()[:, -3:]
+        posiciones = coords.astype(np.float32) / voxel_colors.resolution - 0.5
+        colores = voxel_colors.voxel_colors.detach().cpu().numpy()
+        c, distancias = transferir(destino, original, posiciones, colores, voxel_colors.resolution)
+        salida = copy.copy(mesh)
+        # glTF exige RGB lineal; conservar el mismo contrato que _colores_srgb.
+        lineal = srgb_a_lineal(c).astype(np.float32)
+        if mesh.vertex_counts is not None:
+            completo = np.zeros((mesh.vertices.shape[1], 3), dtype=np.float32)
+            completo[:len(lineal)] = lineal
+            lineal = completo
+        salida.vertex_colors = torch.from_numpy(lineal).unsqueeze(0).to(mesh.vertices.device)
+        informe = f"Color proyectado desde superficie original; distancia p99: {np.quantile(distancias, .99):.6g}"
+        return IO.NodeOutput(salida, informe)
+
+
+class ExoProyectarColorFrontal(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(node_id="ExoProyectarColorFrontal",display_name="Color de foto frontal (Exo)",
+            category="3d/exo filaments",description="Proyeccion ortografica para fotos frontales alineadas. Solo colorea superficies visibles; revisar ojos y limites.",
+            inputs=[IO.Mesh.Input("mesh"),IO.Image.Input("imagen"),IO.Mask.Input("mascara"), IO.Boolean.Input("completar_oscuras",default=False, tooltip="Infere el color de regiones oscuras conectadas a una zona clara de la referencia. Revisar los perfiles.")],
+            outputs=[IO.Mesh.Output("mesh"),IO.String.Output("informe")])
+    @classmethod
+    def execute(cls,mesh,imagen,mascara,completar_oscuras=False):
+        import copy
+        from .proyeccion_color import proyectar
+        v,f=_primera_malla(mesh)
+        colores=_colores_srgb(mesh,len(v))
+        if colores is None:raise ValueError("La malla necesita el color generado para las zonas ocultas")
+        im=imagen[0].detach().cpu().numpy()
+        mask=mascara[0].detach().cpu().numpy()
+        c,visibles=proyectar(v,f,colores,im,mask,completar_oscuras)
+        salida=copy.copy(mesh)
+        salida.vertex_colors=torch.from_numpy(srgb_a_lineal(c).astype(np.float32)).unsqueeze(0)
+        informe=f"Foto frontal aplicada a {100*visibles.mean():.1f}% de vertices; completar regiones oscuras: {completar_oscuras}. Revisar alineacion y perfiles."
+        return IO.NodeOutput(salida,informe)
+
+class ExoCargarMallaSalida(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(node_id="ExoCargarMallaSalida",display_name="Cargar malla generada (Exo)",
+            category="3d/exo filaments",inputs=[IO.String.Input("archivo",default="")],outputs=[IO.Mesh.Output("mesh")])
+    @classmethod
+    def execute(cls,archivo):
+        from pathlib import Path
+        from .cargar_glb import cargar
+        from comfy_api.latest import Types
+        base=Path(folder_paths.get_output_directory()).resolve()
+        p=(base/archivo).resolve()
+        if not p.is_relative_to(base) or p.suffix.lower()!='.glb':
+            raise ValueError("Elegir un GLB dentro de output")
+        if p.stat().st_size>64*1024*1024:
+            raise ValueError("Elegir la malla reparada, menor de 64 MB; la malla en bruto consume demasiada RAM")
+        vertices,caras,colores=cargar(p)
+        v=torch.from_numpy(vertices).unsqueeze(0)
+        f=torch.from_numpy(caras).unsqueeze(0)
+        c=torch.from_numpy(colores).unsqueeze(0)
+        return IO.NodeOutput(Types.MESH(vertices=v,faces=f,vertex_colors=c))
+
+class ExoSegmentarColoresImagen(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(node_id="ExoSegmentarColoresImagen",display_name="Colores predominantes del sujeto (Exo)",
+            category="3d/exo filaments",inputs=[IO.Image.Input("imagen"),IO.Mask.Input("mascara"),IO.Int.Input("plazas",default=4,min=1,max=16)],
+            outputs=[IO.String.Output("paleta")],is_output_node=True)
+    @classmethod
+    def execute(cls,imagen,mascara,plazas=4):
+        from .segmentacion_imagen import segmentar
+        datos=segmentar(imagen[0].detach().cpu().numpy(),mascara[0].detach().cpu().numpy(),plazas)
+        return IO.NodeOutput(datos["paleta"],ui={"segmentacion":[datos]})
 
 
 class ExtensionExoFilaments(ComfyExtension):
     @override
     async def get_node_list(self):
-        return [ExoPromptIA, ExoRevisarImagen, ExoCorregirPrompt, ExoRevisarPieza, ExoSolidificar,
+        return [ExoSegmentarColoresImagen, ExoProyectarColorFrontal, ExoCargarMallaSalida, ExoTransferirColor, ExoPromptIA, ExoRevisarImagen, ExoCorregirPrompt, ExoRevisarPieza, ExoSolidificar,
                 ExoPaletaFilamentos, ExoInformeImpresion, ExoRevisarGrosor,
-                ExoRevisarImprimible, ExoPresupuesto, ExoGuardarImpresion]
+                ExoRevisarImprimible, ExoPresupuesto, ExoPlanImpresion, ExoAuditarTextura, ExoGuardarImpresion]
 
 
 async def comfy_entrypoint() -> ExtensionExoFilaments:
@@ -879,3 +1039,12 @@ async def comfy_entrypoint() -> ExtensionExoFilaments:
 
 
 
+
+
+def _escribir_3mf(destino, vertices, caras, color_vert, max_colores=4, paleta_impresion=""):
+    from .tresmf import escribir_3mf
+
+    from .colores_caras import paleta_por_cara
+    etiquetas, colores = paleta_por_cara(caras, color_vert, max_colores, paleta_impresion)
+    vertices, caras, origen = _malla_exportable(vertices, caras)
+    return escribir_3mf(destino, vertices, caras, etiquetas[origen], colores)

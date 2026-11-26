@@ -1,4 +1,4 @@
-﻿"""Prueba los nodos de Exo filaments sobre una imagen real, de punta a punta.
+"""Prueba los nodos de Exo filaments sobre una imagen real, de punta a punta.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\probar_nodos_exo.py <imagen>
 """

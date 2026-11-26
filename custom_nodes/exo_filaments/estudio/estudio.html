@@ -795,7 +795,10 @@ function pintarGaleria() {
     pie.className = "pie";
     const a = document.createElement("span"); a.textContent = img.prompt ?? "(sin datos)";
     const b = document.createElement("span"); b.textContent = r.segundos ? `${Math.round(r.segundos)} s` : "";
-    pie.append(a, b);
+    const borrar=document.createElement("button");
+    borrar.type="button";borrar.textContent="Borrar";borrar.style.cssText="min-height:44px;color:#ffaaa0";
+    borrar.addEventListener("click",async(e)=>{e.stopPropagation();await window.exoBorrarResultado({archivo:"output:qwen21/"+img.archivo});});
+    pie.append(a, b, borrar);
     t.appendChild(pie);
     t.addEventListener("click", (e) => (e.shiftKey || e.ctrlKey ? elegirComparar(img.archivo) : abrir(i)));
     t.title = "Clic: abrir · Mayús+clic: elegir para comparar";
@@ -831,6 +834,15 @@ function marcarFiltro() {
   for (const b of $("filtros").children) b.classList.toggle("activo", b.dataset.clave === estado.filtro);
 }
 
+window.addEventListener("exo-resultados-borrados",async(e)=>{
+  const eliminados=new Set(e.detail.eliminados);
+  if (actual() && eliminados.has("output:qwen21/"+actual().archivo)) {
+    $("visor").classList.remove("abierto");estado.indice=-1;$("nota").value="";
+  }
+  estado.comparar=estado.comparar.filter(n=>!eliminados.has("output:qwen21/"+n));
+  if (estado.refImagenes) estado.refImagenes.forEach((n,i)=>{if(eliminados.has("input:"+n)) ponerReferencia(null,i+1);});
+  await cargarGaleria();
+});
 // ---------- visor ----------
 function actual() { return estado.visibles[estado.indice]; }
 
@@ -1014,5 +1026,6 @@ conectar();
 cargarOpciones().catch((e) => aviso("No pude leer los nodos de ComfyUI: " + e.message, true));
 cargarGaleria().catch((e) => aviso("No pude leer la galería: " + e.message, true));
 </script>
+<script src="/exo/resultados.js"></script>
 </body>
 </html>

@@ -14,6 +14,8 @@ Ejemplo en config_local.ejemplo.json:
   "preparacion": 3.00,
   "margen": 1.6
 """
+import math
+
 POR_DEFECTO = {
     "precio_filamento_kg": 25.0,   # lo que te cuesta a ti el kilo
     "moneda": "USD",
@@ -34,23 +36,40 @@ def ajustes():
     for clave in POR_DEFECTO:
         if clave in guardados:
             datos[clave] = guardados[clave]
-    datos["configurado"] = any(clave in guardados for clave in POR_DEFECTO)
+    datos["configurado"] = all(clave in guardados for clave in POR_DEFECTO)
     return datos
 
 
 def calcular(peso_g, cfg=None, soportes_pct=0.0):
     """Desglose del precio de una pieza. 'soportes_pct' es el material que se tira."""
-    cfg = cfg or ajustes()
-    peso_total = float(peso_g) * (1.0 + float(soportes_pct) / 100.0)
-    horas = peso_total / max(float(cfg["gramos_por_hora"]), 0.1)
-
-    material = peso_total / 1000.0 * float(cfg["precio_filamento_kg"])
-    maquina = horas * float(cfg["coste_hora_maquina"])
-    coste = material + maquina + float(cfg["preparacion"])
+    cfg = dict(ajustes() if cfg is None else cfg)
+    def numero(nombre, valor, positivo=False):
+        try:
+            n = float(valor)
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError(nombre + ": debe ser un numero finito") from None
+        if not math.isfinite(n) or n < 0 or (positivo and n == 0):
+            raise ValueError(nombre + (": debe ser mayor que cero y finito" if positivo else ": debe ser no negativo y finito"))
+        return n
+    peso = numero("peso_g", peso_g)
+    soportes = numero("soportes_pct", soportes_pct)
+    for clave in POR_DEFECTO:
+        if clave != "moneda":
+            cfg[clave] = numero(clave, cfg.get(clave), clave in ("gramos_por_hora", "margen"))
+    if not isinstance(cfg.get("moneda"), str) or not cfg["moneda"].strip():
+        raise ValueError("moneda: falta una moneda valida")
+    peso_total = peso * (1.0 + soportes / 100.0)
+    horas = peso_total / cfg["gramos_por_hora"]
+    material = peso_total / 1000.0 * cfg["precio_filamento_kg"]
+    maquina = horas * cfg["coste_hora_maquina"]
+    coste = material + maquina + cfg["preparacion"]
     # Los fallos no son mala suerte, son un coste: si una de cada doce se va a la basura,
     # esa doceava parte la pagan las once que salen bien.
     coste *= 1.0 + float(cfg["fallos_pct"]) / 100.0
     precio = coste * float(cfg["margen"])
+
+    if not all(math.isfinite(n) for n in (peso_total, horas, material, maquina, coste, precio)):
+        raise ValueError("presupuesto: los valores exceden el rango permitido")
 
     return {
         "peso_g": round(peso_total, 1),

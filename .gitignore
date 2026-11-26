@@ -46,4 +46,22 @@ revisiones.json
 # Encargos de clientes y registro del vigilante: datos del negocio, no van al repo.
 encargos/
 vigilante_log.txt
-comfy_log.txt
+
+# Secretos y entregas locales
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+*.sqlite*
+*.db
+*.zip
+*.7z
+*.tar*
+/backups/
+/dist/
+/build/
+/private/
+.audit-private/

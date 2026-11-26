@@ -1,4 +1,4 @@
-﻿"""Genera el flujo 'Exo - texto a pieza (Qwen)': de un prompt a un STL imprimible.
+"""Genera el flujo 'Exo - texto a pieza (Qwen)': de un prompt a un STL imprimible.
 
   ComfyUI_windows_portable\\python_embeded\\python.exe scripts\\crear_flujo_texto_a_pieza.py
 
