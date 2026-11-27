@@ -66,5 +66,6 @@ Este repositorio no concede derechos sobre modelos ni imagenes de terceros.
 El [plan de servicio privado y publico](docs/PLAN_ACCESO_USUARIOS.md) define las etapas
 de cuentas, aislamiento, cola y acceso mediante Tailscale o navegador publico.
 
-La etapa 1 ya cuenta con un [portal independiente](portal/README.md): cuentas y
-archivos privados. Las solicitudes quedan pendientes de conectar el trabajador.
+El [portal independiente](portal/README.md) incluye cuentas, archivos privados y
+cola persistente con trabajador local para 2D/3D. El acceso remoto sigue pendiente
+del piloto de Tailscale; el trabajador no expone la API de ComfyUI a clientes.

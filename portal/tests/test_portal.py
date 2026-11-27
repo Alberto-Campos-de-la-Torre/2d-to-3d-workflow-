@@ -68,7 +68,7 @@ class Portal(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.ca.get('/api/archivos/'+f['id']+'/vista')).status,200)
     async def test_trabajo_y_cancelacion_por_propietario(self):
         job=await self.job();ident=job['id'];self.assertEqual(job['owner'],self.a['id'])
-        self.assertEqual(job['state'],'pendiente_de_motor')
+        self.assertEqual(job['state'],'pendiente')
         self.assertEqual((await self.cb.get('/api/trabajos/'+ident)).status,404)
         self.assertEqual((await self.cb.post('/api/trabajos/'+ident+'/cancelar',headers=self.headers(self.b),json={})).status,404)
         self.assertEqual((await self.cb.delete('/api/trabajos/'+ident,headers=self.headers(self.b))).status,404)
@@ -90,6 +90,7 @@ class Portal(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(list((self.root/'usuarios').rglob('*.png'))),0)
     async def test_resultados_descarga_y_borrado_sin_cruces(self):
         job=await self.job();file=self.store.save_file(self.a['id'],self.png(),'image/png','resultado',job['id'])
+        with self.store.connect() as db:db.execute("UPDATE jobs SET state='terminado' WHERE id=?",(job['id'],))
         self.assertEqual((await self.cb.get('/api/archivos/'+file['id']+'/descargar')).status,404)
         self.assertEqual((await self.cm.get('/api/archivos/'+file['id']+'/descargar')).status,200)
         self.assertEqual((await self.ca.delete('/api/trabajos/'+job['id'],headers=self.headers())).status,200)
@@ -152,5 +153,15 @@ class Portal(unittest.IsolatedAsyncioTestCase):
     async def test_login_de_otro_origen_rechazado(self):
         r=await self.ca.post('/api/login',json={'usuario':'persona_a','password':self.password},headers={'Origin':'https://otro.example.invalid'})
         self.assertEqual(r.status,403);self.assertNotIn('exo_session',r.cookies)
+    async def test_perfil_2d_no_permite_solicitudes_3d(self):
+        server=TestServer(create_app(self.root,secure_cookies=False,flows=('2d',)));client=TestClient(server,cookie_jar=CookieJar(unsafe=True));await client.start_server();self.clients.append(client)
+        r=await client.post('/api/login',json={'usuario':'persona_a','password':self.password});user=await r.json()
+        capabilities=await (await client.get('/api/capacidades')).json();self.assertEqual(capabilities['flujos'],['2d'])
+        r=await client.post('/api/trabajos',json={'tipo':'3d','referencias':[]},headers={'X-CSRF-Token':user['csrf']})
+        self.assertEqual(r.status,400)
+        reference=self.store.save_file(self.a['id'],self.png(),'image/png')
+        old=self.store.create_job(self.a,{'tipo':'3d','referencias':[reference['id']]});self.store.cancel(old['id'],self.a)
+        r=await client.post('/api/trabajos/'+old['id']+'/reintentar',json={},headers={'X-CSRF-Token':user['csrf']})
+        self.assertEqual(r.status,400)
 
 if __name__=='__main__':unittest.main(verbosity=2)

@@ -10,10 +10,12 @@ from aiohttp import web
 from PIL import Image,ImageOps,UnidentifiedImageError
 
 from .store import Store,ErrorPortal
+from .queue import retry
 
 STORE=web.AppKey('store',Store)
 COOKIE=web.AppKey('secure_cookie',bool)
 ORIGIN=web.AppKey('origin',str)
+FLOWS=web.AppKey('flows',tuple)
 PUBLIC=Path(__file__).parent/'web'
 SESSION_COOKIE='exo_session'
 MAX_UPLOAD=12*1024*1024
@@ -144,15 +146,28 @@ async def delete_file(request):
 
 async def jobs(request):
     if request.method=='GET':return web.json_response({'trabajos':request.app[STORE].jobs(request['user'])})
-    job=request.app[STORE].create_job(request['user'],await body(request));return web.json_response(job,status=201)
+    data=await body(request)
+    if data.get('tipo') not in request.app[FLOWS]:raise ErrorPortal(400,'Este flujo no esta habilitado en el servicio')
+    job=request.app[STORE].create_job(request['user'],data);return web.json_response(job,status=201)
 async def job(request):return web.json_response(request.app[STORE].job(request.match_info['id'],request['user']))
 async def cancel(request):return web.json_response(request.app[STORE].cancel(request.match_info['id'],request['user']))
 async def delete_job(request):return web.json_response(request.app[STORE].delete_job(request.match_info['id'],request['user']))
+async def retry_job(request):
+    job=request.app[STORE].job(request.match_info['id'],request['user'])
+    if job['kind'] not in request.app[FLOWS]:raise ErrorPortal(400,'Este flujo no esta habilitado en el servicio')
+    return web.json_response(retry(request.app[STORE],request.match_info['id'],request['user']))
+async def motor(request):
+    import time
+    with request.app[STORE].connect() as db:row=db.execute("SELECT expires,status FROM worker_lease WHERE resource='gpu'").fetchone()
+    return web.json_response({'trabajador_activo':bool(row and row['expires']>time.time()),'estado':row['status'] if row and row['expires']>time.time() else 'trabajador_desconectado'})
+async def capabilities(request):return web.json_response({'flujos':list(request.app[FLOWS])})
 
 
-def create_app(data_dir,secure_cookies=True,origin=''):
+def create_app(data_dir,secure_cookies=True,origin='',flows=('2d','3d')):
     app=web.Application(middlewares=[errors,auth],client_max_size=MAX_UPLOAD+65536)
     app[STORE]=Store(data_dir);app[COOKIE]=secure_cookies;app[ORIGIN]=origin
+    if not flows or any(f not in ('2d','3d') for f in flows):raise ValueError('Flujos invalidos')
+    app[FLOWS]=tuple(flows)
     app.add_routes([web.get('/',index),web.get('/assets/{name}',asset),
         web.post('/api/login',login),web.post('/api/logout',logout),web.get('/api/me',me),
         web.get('/api/usuarios',users),web.post('/api/usuarios',users),web.patch('/api/usuarios/{id}',set_user),
@@ -160,4 +175,5 @@ def create_app(data_dir,secure_cookies=True,origin=''):
         web.get('/api/archivos/{id}/{action:vista|descargar}',file_download),web.delete('/api/archivos/{id}',delete_file),
         web.get('/api/trabajos',jobs),web.post('/api/trabajos',jobs),web.get('/api/trabajos/{id}',job),
         web.post('/api/trabajos/{id}/cancelar',cancel),web.delete('/api/trabajos/{id}',delete_job)])
+    app.add_routes([web.post('/api/trabajos/{id}/reintentar',retry_job),web.get('/api/motor',motor),web.get('/api/capacidades',capabilities)])
     return app

@@ -9,13 +9,10 @@ import sqlite3
 import time
 import uuid
 from pathlib import Path
+from .store_errors import ErrorPortal
+from .options import validate_options
 
 ROLES={'administrador','operador','cliente'}
-
-
-class ErrorPortal(Exception):
-    def __init__(self,status,mensaje):
-        super().__init__(mensaje);self.status=status
 
 
 def password_hash(password):
@@ -62,7 +59,17 @@ class Store:
             CREATE TABLE IF NOT EXISTS job_refs(
               job TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
               file TEXT NOT NULL REFERENCES files(id), PRIMARY KEY(job,file));
+            CREATE TABLE IF NOT EXISTS job_options(job TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS job_runtime(
+              job TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+              attempt INTEGER NOT NULL DEFAULT 0,prompt_id TEXT,progress INTEGER NOT NULL DEFAULT 0,
+              stage TEXT NOT NULL DEFAULT 'en_cola',error TEXT NOT NULL DEFAULT '',started REAL,
+              submitted INTEGER NOT NULL DEFAULT 0);
+            CREATE TABLE IF NOT EXISTS worker_lease(
+              resource TEXT PRIMARY KEY,token TEXT NOT NULL,expires REAL NOT NULL,heartbeat REAL NOT NULL,status TEXT NOT NULL);
             ''')
+            db.execute("UPDATE jobs SET state='pendiente' WHERE state='pendiente_de_motor'")
+            db.execute('INSERT OR IGNORE INTO job_runtime(job) SELECT id FROM jobs')
         # Evita una diferencia extrema de coste entre login inexistente y contraseña incorrecta.
         self.dummy=password_hash(secrets.token_urlsafe(24))
 
@@ -141,7 +148,7 @@ class Store:
             raise ErrorPortal(404,'Archivo no disponible')
         return path
 
-    def save_file(self,owner,data,mime,kind='referencia',job=None):
+    def save_file(self,owner,data,mime,kind='referencia',job=None,guard=None):
         suffix={'image/png':'.png','model/gltf-binary':'.glb','model/stl':'.stl','model/3mf':'.3mf'}.get(mime)
         if not suffix:raise ErrorPortal(400,'Formato no permitido')
         ident=uuid.uuid4().hex
@@ -149,22 +156,31 @@ class Store:
              'mime':mime,'size':len(data),'created':time.time()}
         path=self.path(row);path.parent.mkdir(parents=True,exist_ok=True)
         with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if guard:guard(db)
             if job:
                 record=db.execute('SELECT owner FROM jobs WHERE id=?',(job,)).fetchone()
                 if not record or record['owner']!=owner:raise ErrorPortal(404,'Trabajo no encontrado')
             path.write_bytes(data)
-            try:db.execute('INSERT INTO files VALUES(:id,:owner,:job,:type,:path,:mime,:size,:created)',row)
+            try:
+                if guard:guard(db)
+                db.execute('INSERT INTO files VALUES(:id,:owner,:job,:type,:path,:mime,:size,:created)',row)
             except Exception:
                 path.unlink(missing_ok=True);raise
         return {k:v for k,v in row.items() if k!='path'}
 
     def file(self,ident,user):
-        with self.connect() as db:row=db.execute('SELECT * FROM files WHERE id=?',(ident,)).fetchone()
-        return self.owned(row,user)
+        with self.connect() as db:
+            row=self.owned(db.execute('SELECT * FROM files WHERE id=?',(ident,)).fetchone(),user)
+            if row['job']:
+                state=db.execute('SELECT state FROM jobs WHERE id=?',(row['job'],)).fetchone()
+                if not state or state[0]!='terminado':raise ErrorPortal(404,'Resultado no disponible')
+        return row
 
     def files(self,user):
         with self.connect() as db:
-            rows=db.execute('SELECT id,owner,job,type,mime,size,created FROM files'+('' if user['role']=='administrador' else ' WHERE owner=?')+' ORDER BY created DESC',() if user['role']=='administrador' else (user['id'],))
+            condition="(type='referencia' OR job IN (SELECT id FROM jobs WHERE state='terminado'))"
+            rows=db.execute('SELECT id,owner,job,type,mime,size,created FROM files WHERE '+condition+('' if user['role']=='administrador' else ' AND owner=?')+' ORDER BY created DESC',() if user['role']=='administrador' else (user['id'],))
             return [dict(r) for r in rows]
 
     def delete_file(self,ident,user):
@@ -176,7 +192,7 @@ class Store:
             db.execute('DELETE FROM files WHERE id=?',(ident,))
 
     def create_job(self,user,body):
-        if not isinstance(body,dict) or set(body)-{'tipo','prompt','referencias','request_id'}:
+        if not isinstance(body,dict) or set(body)-{'tipo','prompt','referencias','request_id','opciones'}:
             raise ErrorPortal(400,'Solicitud invalida: no se aceptan grafos, rutas ni propietarios enviados por el cliente')
         kind=body.get('tipo');prompt=body.get('prompt','');refs=body.get('referencias',[])
         request_id=body.get('request_id') or uuid.uuid4().hex
@@ -187,18 +203,24 @@ class Store:
         if kind=='3d' and len(refs)!=1:raise ErrorPortal(400,'El trabajo 3D necesita una imagen de referencia')
         if kind=='2d' and not prompt.strip():raise ErrorPortal(400,'Escribe lo que quieres generar')
         if not isinstance(request_id,str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}',request_id):raise ErrorPortal(400,'Identificador de solicitud invalido')
-        signature=token_hash(json.dumps([kind,prompt,refs],sort_keys=True))
+        options=validate_options(kind,body.get('opciones'))
+        signature=token_hash(json.dumps([kind,prompt,refs]+([options] if body.get('opciones') else []),sort_keys=True))
         ident=uuid.uuid4().hex
         with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
             old=db.execute('SELECT * FROM jobs WHERE owner=? AND request_id=?',(user['id'],request_id)).fetchone()
             if old:
                 if old['signature']!=signature:raise ErrorPortal(409,'Ese identificador ya se uso para otra solicitud')
                 return self.job(old['id'],user)
+            count=db.execute("SELECT count(*) FROM jobs WHERE owner=? AND state IN ('pendiente','preparando','enviando','ejecutando','importando','cancelacion_solicitada','requiere_revision')",(user['id'],)).fetchone()[0]
+            if count>=2:raise ErrorPortal(429,'Tienes dos trabajos pendientes o activos; espera o cancela uno')
             for ref in refs:
-                row=db.execute("SELECT * FROM files WHERE id=? AND type='referencia'",(ref,)).fetchone()
+                row=db.execute("SELECT * FROM files WHERE id=? AND (type='referencia' OR job IN (SELECT id FROM jobs WHERE state='terminado'))",(ref,)).fetchone()
                 # Ni administradores pueden mezclar silenciosamente datos de propietarios distintos.
                 if not row or row['owner']!=user['id']:raise ErrorPortal(404,'Referencia no encontrada')
-            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)',(ident,user['id'],kind,prompt,'pendiente_de_motor',time.time(),request_id,signature))
+            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)',(ident,user['id'],kind,prompt,'pendiente',time.time(),request_id,signature))
+            db.execute('INSERT INTO job_runtime(job) VALUES(?)',(ident,))
+            db.execute('INSERT INTO job_options VALUES(?,?)',(ident,json.dumps(options)))
             for ref in refs:db.execute('INSERT INTO job_refs VALUES(?,?)',(ident,ref))
         return self.job(ident,user)
 
@@ -206,7 +228,12 @@ class Store:
         with self.connect() as db:
             row=self.owned(db.execute('SELECT * FROM jobs WHERE id=?',(ident,)).fetchone(),user)
             row['referencias']=[r[0] for r in db.execute('SELECT file FROM job_refs WHERE job=?',(ident,))]
-            row['resultados']=[r[0] for r in db.execute('SELECT id FROM files WHERE job=?',(ident,))]
+            row['resultados']=[r[0] for r in db.execute('SELECT id FROM files WHERE job=?',(ident,))] if row['state']=='terminado' else []
+            row['archivos_resultado']=[dict(r) for r in db.execute('SELECT id,mime,size FROM files WHERE job=?',(ident,))] if row['state']=='terminado' else []
+            options=db.execute('SELECT data FROM job_options WHERE job=?',(ident,)).fetchone()
+            row['opciones']=json.loads(options[0]) if options else validate_options(row['kind'],{})
+            runtime=db.execute('SELECT attempt,progress,stage,error FROM job_runtime WHERE job=?',(ident,)).fetchone()
+            row.update({'intento':runtime['attempt'],'progreso':runtime['progress'],'etapa':runtime['stage'],'error':runtime['error']} if runtime else {})
         row.pop('signature');return row
 
     def jobs(self,user):
@@ -217,7 +244,7 @@ class Store:
     def cancel(self,ident,user):
         self.job(ident,user)
         with self.connect() as db:
-            cursor=db.execute("UPDATE jobs SET state='cancelado' WHERE id=? AND state='pendiente_de_motor'",(ident,))
+            cursor=db.execute("UPDATE jobs SET state=CASE WHEN state='pendiente' THEN 'cancelado' ELSE 'cancelacion_solicitada' END WHERE id=? AND state IN ('pendiente','preparando','enviando','ejecutando','importando','cancelacion_solicitada')",(ident,))
             if not cursor.rowcount:raise ErrorPortal(409,'Este trabajo ya no puede cancelarse')
         return self.job(ident,user)
 
@@ -225,13 +252,16 @@ class Store:
         self.job(ident,user)
         with self.connect() as db:
             job=self.owned(db.execute('SELECT * FROM jobs WHERE id=?',(ident,)).fetchone(),user)
-            if job['state'] not in ('pendiente_de_motor','cancelado','terminado','fallido'):
+            if job['state'] not in ('pendiente','cancelado','terminado','fallido'):
                 raise ErrorPortal(409,'Espera a que el trabajo deje de ejecutarse')
+            if db.execute('SELECT 1 FROM job_refs r JOIN files f ON r.file=f.id WHERE f.job=? AND r.job<>?',(ident,ident)).fetchone():
+                raise ErrorPortal(409,'Otro trabajo usa un resultado de este trabajo; elimina primero el dependiente')
             refs=db.execute('SELECT file FROM job_refs WHERE job=?',(ident,)).fetchall()
             files=[dict(r) for r in db.execute('SELECT * FROM files WHERE job=?',(ident,))]
             for ref in refs:
                 count=db.execute('SELECT count(*) FROM job_refs WHERE file=? AND job<>?',(ref[0],ident)).fetchone()[0]
-                if not count:files.append(dict(db.execute('SELECT * FROM files WHERE id=?',(ref[0],)).fetchone()))
+                row=db.execute('SELECT * FROM files WHERE id=?',(ref[0],)).fetchone()
+                if not count and row['type']=='referencia':files.append(dict(row))
             for row in files:self.path(row).unlink(missing_ok=True)
             db.execute('DELETE FROM job_refs WHERE job=?',(ident,))
             for row in files:db.execute('DELETE FROM files WHERE id=?',(row['id'],))

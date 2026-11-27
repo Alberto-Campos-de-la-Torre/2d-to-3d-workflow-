@@ -41,3 +41,22 @@ El perfil 2D no importa motores ni librerias de mallas. El perfil 3D no requiere
 la instalacion de Qwen ni del Estudio. Ambos incluyen utilidades comunes, y el perfil
 `ambos` habilita su conexion. El paquete anterior se conserva para compatibilidad;
 el instalador nuevo usa exclusivamente los directorios `modules/` e `integration/`.
+
+
+## Comprobacion ampliada de privacidad (2026-11-27)
+
+El auditor tambien revisa correos de cualquier dominio, hosts de tailnet, contactos
+telefonicos estructurados, rutas personales Unix, conexiones autenticadas y mensajes
+de commit. No se encontraron cuentas privadas o credenciales en esta entrega.
+
+La autoria de GitHub y creditos de coautoria publicos siguen siendo visibles en Git.
+Dos blobs historicos de una nota contienen un contacto atribuido a un proveedor;
+se clasifican como referencia documental publica por su hash exacto, no mediante
+una excepcion para futuros correos. El contacto se retiro del archivo actual.
+Esta revision no reescribe ni anonimiza el historial ya publicado. Los informes
+distinguen estas menciones informativas de datos privados; no son claves de acceso.
+
+El trabajador solo usa ComfyUI local y directorios por intento. Rechaza rutas de
+resultados ajenas, no importa PNG con su metadata original y no publica resultados
+parciales. La reserva de GPU evita trabajadores simultaneos dentro del mismo portal.
+El acceso por Tailscale o Internet requiere las etapas posteriores del plan.

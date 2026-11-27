@@ -3,6 +3,12 @@ import argparse,ipaddress,json,re,subprocess
 from pathlib import Path
 
 RULES={
+ 'correo_no_ejemplo':re.compile(r'\b[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b'),
+ 'host_privado':re.compile(r'https?://[^/\s"\']+\.(?:ts\.net|local)(?=[:/\s"\']|$)'),
+ 'contacto_telefonico':re.compile(r'(?:tel:|wa\.me/)[+0-9]{7,}'),
+ 'conexion_autenticada':re.compile(r'(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqps?)://[^\s/:]+:[^\s/@]+@'),
+ 'ruta_usuario_unix':re.compile(r'/(?:home|Users)/[A-Za-z0-9_.-]+/'),
+ 'clave_almacenamiento':re.compile(r'(?i)(?:AccountKey|SharedAccessSignature)=[A-Za-z0-9+/=]{20,}'),
  'clave_proveedor':re.compile(r'\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{24,}|hf_[A-Za-z0-9]{24,}|gh[pousr]_[A-Za-z0-9]{25,}|github_pat_[A-Za-z0-9_]{25,}|AKIA[A-Z0-9]{16})\b'),
  'llave_privada':re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'),
  'credencial_literal':re.compile(r'''(?i)(?:api[_-]?key|password|passwd|secret|authorization)\s*["']?\s*[:=]\s*["']([^"'\s]{12,})["']'''),
@@ -15,12 +21,17 @@ RULES={
  'secreto_en_query':re.compile(r'(?i)[?&](?:api_key|access_token|token|secret)=[A-Za-z0-9._-]{16,}'),
 }
 BLOCKED={'.png','.jpg','.jpeg','.webp','.stl','.obj','.mtl','.glb','.gltf','.3mf','.ply','.safetensors','.ckpt','.gguf','.pt','.pth','.bin','.zip','.7z','.exe','.pyc'}
-def scan(name,data):
+def scan(name,data,attribution=False):
     findings=[]
     for line,text in enumerate(data.decode('utf-8',errors='replace').splitlines(),1):
         for rule,rx in RULES.items():
             for m in rx.finditer(text):
                 severity='error'
+                if rule=='correo_no_ejemplo':
+                    domain=m.group(1).lower();local=m.group().split('@')[0].lower()
+                    if domain.endswith('.invalid') or domain in ('example.com','example.org','example.net'):continue
+                    if attribution and (domain=='users.noreply.github.com' or (domain=='anthropic.com' and local=='noreply')):
+                        severity='info'
                 if rule=='ip':
                     try:ip=ipaddress.ip_address(m.group())
                     except ValueError:continue
@@ -50,11 +61,18 @@ def audit(repo,history=False):
                 findings.append({'archivo':name,'objeto':oid,'regla':'archivo_no_publicable_en_historial','nivel':'error'})
             data=subprocess.check_output(['git','-C',str(repo),'cat-file','blob',oid])
             for f in scan(name,data):
+                # Dos versiones historicas de una nota con contacto de proveedor;
+                # se conserva la trazabilidad sin introducir ese correo en codigo nuevo.
+                if f['regla']=='correo_no_ejemplo' and oid in {'c4affbd6c25781efce18afc603046414bb0c4de9','ee7494526d9862c93bf03a88acdd0a54a372a886'}:
+                    f['nivel']='info'
                 if f['nivel']=='error':f['objeto']=oid;findings.append(f)
+                elif f['regla']=='correo_no_ejemplo':f['objeto']=oid;findings.append(f)
         log=subprocess.check_output(['git','-C',str(repo),'log','--all','--format=%H%x09%ae%x09%ce'],text=True)
         for row in log.splitlines():
             parts=row.split('\t')
             if any(RULES['correo_personal'].search(s) for s in parts[1:]):metadata.append({'commit':parts[0],'regla':'correo_personal_en_autoria'})
+        messages=subprocess.check_output(['git','-C',str(repo),'log','--all','--format=%H%n%an <%ae>%n%cn <%ce>%n%B'])
+        findings+=scan('metadata_y_mensajes_git',messages,attribution=True)
     return {'archivos':files,'bytes':total,'hallazgos':findings,'autoria':metadata,'errores':sum(f['nivel']=='error' for f in findings)+len(metadata)}
 if __name__=='__main__':
     ap=argparse.ArgumentParser();ap.add_argument('repo',type=Path);ap.add_argument('--historial',action='store_true');ap.add_argument('--informe',type=Path,required=True)

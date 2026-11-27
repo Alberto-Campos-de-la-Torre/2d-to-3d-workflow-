@@ -106,4 +106,6 @@ documentacion al desplegar. La configuracion concreta de red no se guarda en el 
 - Etapa 1: base del portal implementada y validada con 26 pruebas locales (2026-11-27).
   Cuentas, sesiones, referencias, trabajos, descargas y borrado por propietario.
   Interfaz responsive incluida; piloto en dispositivos y proxy HTTPS pendientes.
-- Etapas 2 a 5: pendientes; no hay trabajador conectado ni acceso publico habilitado.
+- Etapa 2: cola y trabajador local implementados; validacion de protocolo y nodos
+  realizada sin inferencia GPU. Pendiente la prueba de inferencia con recursos libres.
+- Etapas 3 a 5: pendientes; no hay acceso Tailscale/publico habilitado.

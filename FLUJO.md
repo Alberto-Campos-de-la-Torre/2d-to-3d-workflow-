@@ -33,8 +33,8 @@ codificador qwen3vl int8). ~25 s por imagen de 1 MP, ~35-40 s la primera o con r
 - *Enviar a 3D* copia la imagen a `input\` para elegirla en el *Load Image* del flujo de pieza.
 - El mismo grafo esta en el flujo **"Exo - Qwen-Image 2.1 (GGUF)"** (`scripts\crear_flujo_qwen.py`).
 - **Licencia: Qwen Research License = solo uso NO comercial** (investigacion/evaluacion).
-  Para usarlo en pedidos de clientes hace falta licencia comercial aparte
-  (model-business@notice.qwencloud.com). FLUX.2 Klein 4B (Apache 2.0) si es comercial.
+  Consulta la licencia oficial de la variante instalada antes de utilizarla
+  comercialmente; esta guia historica no verifica derechos de modelos actuales.
 
 Los scripts de las secciones siguientes siguen sirviendo para trabajar en lote desde la
 linea de comandos, y `preparar_impresion.py` sigue siendo la reparacion mas completa
