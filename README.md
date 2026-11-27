@@ -60,3 +60,8 @@ en un catalogo local que nunca se publica.
 
 Cada modelo externo conserva su licencia: consulta su distribucion antes de usarlo.
 Este repositorio no concede derechos sobre modelos ni imagenes de terceros.
+
+## Acceso remoto y multiusuario
+
+El [plan de servicio privado y publico](docs/PLAN_ACCESO_USUARIOS.md) define las etapas
+de cuentas, aislamiento, cola y acceso mediante Tailscale o navegador publico.
