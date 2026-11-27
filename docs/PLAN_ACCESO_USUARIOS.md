@@ -98,3 +98,12 @@ reales antes de usar Funnel para archivos grandes.
 Funnel tiene limites de ancho de banda y no puede compartir un mismo puerto con
 Serve en modo privado simultaneamente. Usar entradas separadas y verificar la
 documentacion al desplegar. La configuracion concreta de red no se guarda en el repo.
+
+
+## Seguimiento de implementacion
+
+- Base modular `83001b4` y plan `82761f1`: publicados y verificados en origin/main.
+- Etapa 1: base del portal implementada y validada con 26 pruebas locales (2026-11-27).
+  Cuentas, sesiones, referencias, trabajos, descargas y borrado por propietario.
+  Interfaz responsive incluida; piloto en dispositivos y proxy HTTPS pendientes.
+- Etapas 2 a 5: pendientes; no hay trabajador conectado ni acceso publico habilitado.
