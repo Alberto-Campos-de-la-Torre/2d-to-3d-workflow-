@@ -54,3 +54,18 @@ y el proceso esta detenido, no habra backend disponible; no se publicara otro se
 La auditoria de entrega revisa archivos e historial sin imprimir secretos. Las
 atribuciones publicas y dos blobs historicos con un contacto de proveedor siguen
 siendo antecedentes documentados; no se reescribio el historial para esta etapa.
+
+## Comprobacion posterior: 2026-11-28
+
+El propietario confirmo acceso al portal desde el celular. Se inicio ComfyUI en
+loopback y el trabajador local, que completo una solicitud 2D real de 1024x1024.
+La imagen privada resultante se verifico como PNG valido. El trabajo se habia
+registrado sin referencias; esta inferencia no valida edicion basada en fotos.
+
+Se corrigio la interfaz para subir y seleccionar una foto pendiente antes de crear
+el trabajo, bloquear el envio si la subida falla y mostrar el numero de referencias
+utilizadas. Siete casos de cliente y la regresion de sesiones pasaron. El test de
+protocolo verifica referencias de una y dos imagenes hasta el grafo del motor,
+con archivos reales temporales. El portal HTTPS ya sirve los recursos actualizados
+sin reinicio. Pendiente repetir la edicion real con una foto subida por el usuario.
+La prueba real 3D y el aislamiento de red previo a invitados siguen pendientes.

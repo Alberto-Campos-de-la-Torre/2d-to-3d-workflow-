@@ -84,6 +84,27 @@ class WorkerTests(unittest.IsolatedAsyncioTestCase):
         with Image.open(self.store.path(f)) as im:self.assertNotIn('prompt',im.info)
         with self.assertRaises(ErrorPortal):self.store.file(f['id'],self.b)
         self.assertFalse(self.fake.history);self.assertFalse(list((self.comfy/'output').rglob('*.png')))
+    async def test_referencias_2d_llegan_al_grafo_y_se_limpian(self):
+        for count in (1,2):
+            with self.subTest(referencias=count):
+                refs=[]
+                for i in range(count):
+                    out=io.BytesIO();Image.new('RGB',(8,8),(50+i*60,80,120)).save(out,format='PNG')
+                    refs.append(self.store.save_file(self.a['id'],out.getvalue(),'image/png')['id'])
+                job=self.store.create_job(self.a,{'tipo':'2d','prompt':'Cambiar el fondo','referencias':refs})
+                await self.worker.tick();graph=self.fake.submissions[-1]['prompt']
+                linked=self.store.job(job['id'],self.a)['referencias']
+                self.assertEqual(set(linked),set(refs));self.assertNotIn('5',graph)
+                self.assertEqual(graph['6']['inputs']['latent_image'],['4',2])
+                for i,ident in enumerate(linked):
+                    key=str(20+i);self.assertEqual(graph['4']['inputs'][f'images.image_{i+1}'],[key,0])
+                    path=self.comfy/'input'/graph[key]['inputs']['image']
+                    self.assertTrue(path.is_file())
+                    self.assertEqual(path.read_bytes(),self.store.path(self.store.file(ident,self.a)).read_bytes())
+                await self.finish();self.assertEqual(self.state(job),'terminado')
+                self.assertFalse(list((self.comfy/'input').rglob('*.png')))
+                self.assertTrue(all(self.store.path(self.store.file(ident,self.a)).is_file() for ident in refs))
+
     async def test_3d_plantilla_y_exportacion_sin_malla_bruta(self):
         j=self.job('3d');await self.worker.tick();graph=self.fake.submissions[-1]['prompt']
         self.assertNotIn('82',graph);self.assertEqual(graph['62']['inputs']['resolucion'],384)

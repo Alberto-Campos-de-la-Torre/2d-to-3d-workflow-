@@ -1,4 +1,4 @@
-let sesion=null,solicitudPendiente=null,monitorOcupado=false,ultimoEstado="",versionSesion=0;
+let sesion=null,solicitudPendiente=null,monitorOcupado=false,ultimoEstado="",versionSesion=0,cargaReferencia=null;
 const $=id=>document.getElementById(id);
 function mensaje(texto){$("mensaje").textContent=texto;}
 async function api(path,method="GET",data=null){
@@ -11,20 +11,42 @@ async function api(path,method="GET",data=null){
   if(!r.ok){if(r.status===401){sesion=null;mostrarSesion();}throw new Error(result.error||`Error ${r.status}`);}return result;
 }
 function boton(texto,action){const b=document.createElement("button");b.type="button";b.textContent=texto;b.addEventListener("click",async()=>{b.disabled=true;try{await action();}catch(e){mensaje(e.message);}finally{b.disabled=false;}});return b;}
+function referenciasMarcadas(){return [...$("referencias").querySelectorAll("input:checked")].map(n=>n.value);}
+function resumenReferencias(){
+  const n=referenciasMarcadas().length,pendiente=!!$("subida").imagen?.files?.length;
+  $("resumen-referencias").textContent=pendiente ? `Foto pendiente de subir: se adjuntará antes de enviar. ${n} referencia(s) ya seleccionada(s).` : n ? `${n} referencia(s) seleccionada(s) para el próximo trabajo.` : "Sin referencias: el flujo 2D generará solo desde texto.";
+}
+async function subirReferenciaPendiente(){
+  if(cargaReferencia)return cargaReferencia;
+  const f=$("subida"),input=f.imagen,file=input.files?.[0];
+  if(!file)return null;
+  const data=new FormData(f),button=f.querySelector("button");
+  button.disabled=true;input.disabled=true;
+  const promise=(async()=>{
+    const saved=await api("/api/referencias","POST",data);
+    await referencias([saved.id]);
+    if(input.files?.[0]===file)f.reset();return saved;
+  })();
+  cargaReferencia=promise;
+  try{return await promise;}finally{if(cargaReferencia===promise)cargaReferencia=null;button.disabled=false;input.disabled=false;resumenReferencias();}
+}
+$("subida").addEventListener("change",resumenReferencias);
 function mostrarSesion(){
   versionSesion++;
   $("acceso").hidden=!!sesion;$("panel").hidden=!sesion;$("salir").hidden=!sesion;
   $("identidad").textContent=sesion ? `${sesion.login} · ${sesion.role}` : "Acceso a tus referencias y trabajos.";
   $("administracion").hidden=sesion?.role!=="administrador";
-  if(!sesion){ultimoEstado="";solicitudPendiente=null;$("referencias").replaceChildren();$("trabajos").replaceChildren();$("usuarios").replaceChildren();}
+  if(!sesion){ultimoEstado="";solicitudPendiente=null;$("referencias").replaceChildren();$("trabajos").replaceChildren();$("usuarios").replaceChildren();$("subida").reset?.();resumenReferencias();}
 }
 $("login").addEventListener("submit",async(e)=>{e.preventDefault();const f=e.target;try{sesion=await api("/api/login","POST",{usuario:f.usuario.value,password:f.password.value});f.password.value="";mostrarSesion();await actualizar();mensaje("");}catch(error){mensaje(error.message);}});
 $("salir").addEventListener("click",async()=>{try{await api("/api/logout","POST",{});sesion=null;mostrarSesion();mensaje("Sesión cerrada");}catch(e){mensaje(e.message);}});
-$("subida").addEventListener("submit",async(e)=>{e.preventDefault();const button=e.target.querySelector("button");button.disabled=true;try{await api("/api/referencias","POST",new FormData(e.target));e.target.reset();await actualizar();mensaje("Referencia guardada de forma privada");}catch(error){mensaje(error.message);}finally{button.disabled=false;}});
+$("subida").addEventListener("submit",async(e)=>{e.preventDefault();try{const saved=await subirReferenciaPendiente();if(saved){await actualizar();mensaje("Referencia guardada y seleccionada para el próximo trabajo");}}catch(error){mensaje(error.message);}});
 $("solicitud").addEventListener("submit",async(e)=>{
   e.preventDefault();const f=e.target,b=f.querySelector("button");b.disabled=true;
   try{
-    const refs=[...$("referencias").querySelectorAll("input:checked")].map(n=>n.value);
+    const nuevaReferencia=await subirReferenciaPendiente();
+    const refs=referenciasMarcadas();
+    if(nuevaReferencia && !refs.includes(nuevaReferencia.id))refs.push(nuevaReferencia.id);
     const opciones={pasos:+f.pasos.value,max_intentos:+f.intentos.value,...(f.tipo.value==="2d" ? {resolucion:+f.resolucion.value} : {altura_mm:+f.altura.value,color:f.color.checked})};
     const data={tipo:f.tipo.value,prompt:f.prompt.value,referencias:refs,opciones};const firma=JSON.stringify(data);
     if(!solicitudPendiente || solicitudPendiente.firma!==firma)solicitudPendiente={firma,id:crypto.randomUUID()};
@@ -33,20 +55,21 @@ $("solicitud").addEventListener("submit",async(e)=>{
   }catch(error){mensaje(error.message+". Revisa el historial antes de volver a enviar.");}finally{b.disabled=false;}
 });
 $("nuevo-usuario").addEventListener("submit",async(e)=>{e.preventDefault();const f=e.target;try{await api("/api/usuarios","POST",{usuario:f.usuario.value,password:f.password.value,rol:f.rol.value});f.reset();await usuarios();mensaje("Cuenta creada");}catch(error){mensaje(error.message);}});
-async function referencias(){
-  const seleccion=new Set([...$("referencias").querySelectorAll("input:checked")].map(n=>n.value));
-  const datos=await api("/api/archivos");$("referencias").replaceChildren();
+async function referencias(preseleccion=[]){
+  const datos=await api("/api/archivos");
+  const seleccion=new Set([...referenciasMarcadas(),...preseleccion]);$("referencias").replaceChildren();
   for(const file of datos.archivos.filter(f=>f.type==="referencia" || f.mime==="image/png")){
     const card=document.createElement("div");card.className="tarjeta";
     const img=document.createElement("img");img.src=`/api/archivos/${file.id}/vista`;img.alt="Referencia privada";img.loading="lazy";
     const label=document.createElement("label"),check=document.createElement("input");check.type="checkbox";check.value=file.id;
     // Un administrador ve todas las referencias, pero solo mezcla las propias en solicitudes nuevas.
-    check.disabled=file.owner!==sesion.id;check.checked=seleccion.has(file.id);label.append(check,document.createTextNode(" Usar esta imagen"));
+    check.disabled=file.owner!==sesion.id;check.checked=!check.disabled && seleccion.has(file.id);check.addEventListener("change",resumenReferencias);label.append(check,document.createTextNode(" Usar esta imagen"));
     card.append(img,label);
     if(file.type==="referencia")card.append(boton("Borrar referencia",async()=>{if(!confirm("¿Borrar este archivo de referencia de la PC?"))return;await api(`/api/archivos/${file.id}`,"DELETE");await actualizar();}));
     else {const nota=document.createElement("p");nota.textContent="Imagen generada: se borra desde su trabajo.";card.append(nota);}
     $("referencias").append(card);
   }
+  resumenReferencias();
 }
 async function trabajos(){
   const version=versionSesion;
@@ -66,7 +89,8 @@ async function trabajos(){
     const avance=document.createElement("p");avance.textContent=`Intento ${job.intento}/${job.opciones.max_intentos} · etapa: ${job.etapa || job.state}`+(job.error ? ` · ${job.error.replaceAll("_"," ")}` : "");
     if(job.state==="requiere_revision")avance.textContent+=" · Un operador debe revisar el motor; no se reenviará automáticamente.";
     for(const id of job.resultados){const a=document.createElement("a");a.href=`/api/archivos/${id}/descargar`;a.textContent="Descargar resultado";actions.append(a);}
-    row.append(h,p,avance,actions);$("trabajos").append(row);
+    const referenciasUsadas=document.createElement("p");referenciasUsadas.textContent=job.referencias.length ? `Referencias utilizadas: ${job.referencias.length}` : "Sin referencias: generación desde texto.";
+    row.append(h,p,referenciasUsadas,avance,actions);$("trabajos").append(row);
   }
 }
 async function usuarios(){if(sesion.role!=="administrador")return;const datos=await api("/api/usuarios");$("usuarios").replaceChildren();for(const user of datos.usuarios){const row=document.createElement("p");row.append(document.createTextNode(`${user.login} · ${user.role} · ${user.active ? "activo" : "desactivado"} `),boton(user.active ? "Desactivar" : "Activar",async()=>{await api(`/api/usuarios/${user.id}`,"PATCH",{activo:!user.active});await usuarios();}));$("usuarios").append(row);}}

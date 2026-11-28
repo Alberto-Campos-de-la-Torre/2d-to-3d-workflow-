@@ -118,3 +118,24 @@ y 3D con/sin color mediante el validador real de ComfyUI instalado, sin ejecutar
 No se ejecutaron nuevas inferencias durante esta entrega por la carga GPU existente.
 Una prueba de inferencia en tu equipo y la prueba en movil siguen siendo necesarias
 antes de abrir el servicio a usuarios remotos.
+
+## Adjuntar referencias al enviar
+
+Elegir una foto en el selector y enviar el trabajo sube primero esa foto y la
+selecciona automaticamente. El boton Guardar y usar referencia tambien la deja
+seleccionada. Si la subida falla, no se crea un trabajo sin imagen por accidente.
+La interfaz muestra el numero de referencias seleccionadas y el historial indica
+cuantas se vincularon a cada trabajo. Sin foto elegida ni referencias marcadas,
+el flujo 2D sigue permitiendo generar solo desde texto.
+
+Pruebas de cliente adicionales:
+
+```powershell
+node portal/tests/test_client_references.cjs
+node portal/tests/test_client_sessions.cjs
+```
+
+El test de trabajador `test_referencias_2d_llegan_al_grafo_y_se_limpian` comprueba
+una y dos referencias: copia local, bytes originales, LoadImage conectado al
+codificador Qwen, latente condicionado y limpieza de copias temporales. Usa un
+servidor de protocolo, no evalua fidelidad visual del modelo.
