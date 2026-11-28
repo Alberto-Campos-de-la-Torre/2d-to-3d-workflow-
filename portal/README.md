@@ -96,11 +96,15 @@ etapa 1 es aditiva y convierte las solicitudes pendientes de motor en pendientes
 ## Red
 
 Cookies HttpOnly, SameSite=Strict y Secure por defecto, CSRF y comprobacion de origen.
-`--local-http` solo se permite con localhost. No se confia en cabeceras de identidad
-de Tailscale ni en X-Forwarded-For proporcionadas por el navegador.
-Esta etapa no abre Serve, Funnel ni el firewall: el piloto remoto corresponde al
-[plan de acceso](../docs/PLAN_ACCESO_USUARIOS.md). La conexion de un trabajador remoto
-a un portal en VPS requiere el protocolo privado de una etapa posterior, no compartir SQLite.
+`--local-http` solo se permite con localhost. El perfil privado de la etapa 3
+acepta identidad de Tailscale exclusivamente desde el backend ligado a loopback,
+con host/origen HTTPS configurados y lista local de identidades. La identidad no
+reemplaza el login ni los roles. X-Forwarded-For no se usa para autorizar.
+
+Ver [piloto privado](../docs/PILOTO_PRIVADO.md) para preparar, publicar y retirar
+un puerto Serve independiente sin tocar otros servicios. Funnel sigue desactivado.
+La conexion de un trabajador remoto a un VPS requiere otro protocolo privado,
+no compartir SQLite.
 
 ## Validacion
 

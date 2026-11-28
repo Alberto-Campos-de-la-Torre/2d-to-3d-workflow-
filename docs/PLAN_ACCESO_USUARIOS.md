@@ -108,4 +108,8 @@ documentacion al desplegar. La configuracion concreta de red no se guarda en el 
   Interfaz responsive incluida; piloto en dispositivos y proxy HTTPS pendientes.
 - Etapa 2: cola y trabajador local implementados; validacion de protocolo y nodos
   realizada sin inferencia GPU. Pendiente la prueba de inferencia con recursos libres.
-- Etapas 3 a 5: pendientes; no hay acceso Tailscale/publico habilitado.
+- Etapa 3: piloto privado HTTPS implementado y comprobado en el servidor.
+  Sin cuentas predeterminadas; pendiente alta local del administrador, validacion
+  desde otro dispositivo y revision de grants antes de invitar a terceros.
+  Ver PILOTO_PRIVADO.md y VALIDACION_ETAPA3.md.
+- Etapas 4 y 5: pendientes; no hay acceso publico habilitado.

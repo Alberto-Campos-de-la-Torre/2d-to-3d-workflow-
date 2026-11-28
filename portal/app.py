@@ -11,6 +11,7 @@ from PIL import Image,ImageOps,UnidentifiedImageError
 
 from .store import Store,ErrorPortal
 from .queue import retry
+from .private_access import PRIVATE,PrivateAccess,private_boundary
 
 STORE=web.AppKey('store',Store)
 COOKIE=web.AppKey('secure_cookie',bool)
@@ -163,8 +164,13 @@ async def motor(request):
 async def capabilities(request):return web.json_response({'flujos':list(request.app[FLOWS])})
 
 
-def create_app(data_dir,secure_cookies=True,origin='',flows=('2d','3d')):
-    app=web.Application(middlewares=[errors,auth],client_max_size=MAX_UPLOAD+65536)
+def create_app(data_dir,secure_cookies=True,origin='',flows=('2d','3d'),private_config=None):
+    app=web.Application(middlewares=[errors,private_boundary,auth],client_max_size=MAX_UPLOAD+65536)
+    if private_config is not None:
+        if not secure_cookies:raise ValueError('El piloto privado requiere cookies HTTPS')
+        access=PrivateAccess(private_config)
+        if origin and origin!=access.origin:raise ValueError('Origen distinto al piloto')
+        origin=access.origin;app[PRIVATE]=access
     app[STORE]=Store(data_dir);app[COOKIE]=secure_cookies;app[ORIGIN]=origin
     if not flows or any(f not in ('2d','3d') for f in flows):raise ValueError('Flujos invalidos')
     app[FLOWS]=tuple(flows)

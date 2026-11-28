@@ -46,7 +46,7 @@ def audit(repo,history=False):
         name=p.relative_to(repo).as_posix();files+=1;total+=p.stat().st_size
         if p.suffix.lower() in BLOCKED or p.stat().st_size>2*1024*1024:
             findings.append({'archivo':name,'regla':'archivo_no_publicable','nivel':'error'})
-        if p.name in ('config_local.json','.env','revisiones.json','catalogo.json'):
+        if p.name in ('config_local.json','.env','revisiones.json','catalogo.json','acceso-privado.json','serve-anterior.json','serve-piloto.json','ABRIR_PORTAL.txt','validacion-privada.json','portal-proceso.json'):
             findings.append({'archivo':name,'regla':'datos_locales','nivel':'error'})
         findings+=scan(name,p.read_bytes())
     metadata=[]

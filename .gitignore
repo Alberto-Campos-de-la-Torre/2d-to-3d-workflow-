@@ -65,3 +65,11 @@ vigilante_log.txt
 /build/
 /private/
 .audit-private/
+
+# Configuracion y recibos privados del piloto
+acceso-privado.json
+serve-anterior.json
+serve-piloto.json
+ABRIR_PORTAL.txt
+validacion-privada.json
+portal-proceso.json
